@@ -49,3 +49,14 @@ body {
 @media print {
   .no-print { display: none !important; }
 }
+
+@keyframes receipt-print {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: none; }
+}
+.receipt-line {
+  animation: receipt-print 0.45s ease both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .receipt-line { animation: none; }
+}

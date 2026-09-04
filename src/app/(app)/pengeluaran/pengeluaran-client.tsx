@@ -11,6 +11,7 @@ import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Dialog, ConfirmDialog } from "@/components/ui/dialog";
 import { EmptyState, LoadingSkeleton } from "@/components/ui/empty-state";
 import { formatRupiah, formatTanggal } from "@/lib/utils";
+import { toastApiError } from "@/lib/api-client";
 import { exportRowsToExcel } from "@/lib/export-excel";
 
 interface Pengeluaran {
@@ -147,7 +148,7 @@ export function PengeluaranClient() {
       });
       const data = await res.json();
       if (!res.ok) {
-        toast.error(data.error ?? "Gagal menyimpan Pengeluaran");
+        toastApiError(data, "Gagal menyimpan Pengeluaran");
         return;
       }
       toast.success(editing ? "Pengeluaran diperbarui" : "Pengeluaran tercatat");

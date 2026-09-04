@@ -28,7 +28,13 @@ PostgreSQL · iron-session (username + password) · Radix UI · cmdk · lucide-r
    ```bash
    npm run dev
    ```
-5. Buka `http://localhost:3000`, login dengan `admin` / `admin123` (ganti setelah masuk).
+5. Buka `http://localhost:3000` (landing). Login:
+   - Toko 1: `admin` / `admin123`
+   - Toko 2 (isolasi data): `demo2` / `admin123`
+   - Admin platform (approve langganan): `superadmin` / `admin123`
+   Ganti password setelah masuk.
+
+Lihat [`SAAS-ROADMAP.md`](./SAAS-ROADMAP.md) untuk paket, dan [`CEK-SATU-SATU.md`](./CEK-SATU-SATU.md) untuk urutan cek.
 
 ## Struktur folder
 

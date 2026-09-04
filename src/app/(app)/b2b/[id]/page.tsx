@@ -17,5 +17,5 @@ export default async function B2BDetailPage({ params }: { params: Promise<{ id: 
   }
 
   const { id } = await params;
-  return <OrderDetailClient orderId={id} role={user.role} />;
+  return <OrderDetailClient orderId={id} role={user.role as "OWNER" | "FINANCE" | "SALES" | "PRODUKSI"} />;
 }

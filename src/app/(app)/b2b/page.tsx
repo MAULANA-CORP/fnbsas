@@ -16,5 +16,5 @@ export default async function B2BPage() {
     );
   }
 
-  return <OrderListClient role={user.role} />;
+  return <OrderListClient role={user.role as "OWNER" | "FINANCE" | "SALES" | "PRODUKSI"} />;
 }

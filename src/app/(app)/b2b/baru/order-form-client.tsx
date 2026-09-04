@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { SearchableSelect, type SelectOption } from "@/components/ui/searchable-select";
 import { formatRupiah, formatAngka } from "@/lib/utils";
+import { toastApiError } from "@/lib/api-client";
 
 interface AgenOpt {
   id: string;
@@ -184,7 +185,7 @@ export function OrderFormClient({
       });
       const data = await res.json();
       if (!res.ok) {
-        toast.error(data.error ?? "Gagal membuat order");
+        toastApiError(data, "Gagal membuat order");
         return;
       }
       toast.success(`Order ${data.data.nomor} berhasil dibuat`);

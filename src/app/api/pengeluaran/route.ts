@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getPrisma } from "@/lib/prisma";
 import { withOwnerFinance, catatAudit, apiError } from "@/lib/api-helpers";
 import { parseTanggalAwal, parseTanggalAkhir } from "@/lib/period";
+import { assertBisaTransaksi } from "@/lib/subscription";
 
 function serializePengeluaran(p: {
   id: string;
@@ -89,6 +90,8 @@ export const POST = withOwnerFinance(async (user, req) => {
     if (Number.isNaN(tanggal.getTime())) {
       return NextResponse.json({ error: "Tanggal tidak valid", type: "validation" }, { status: 400 });
     }
+
+    await assertBisaTransaksi(user);
 
     const created = await getPrisma().pengeluaran.create({
       data: { kategori, jumlah, tanggal, outletId, keterangan, userId: user.id },

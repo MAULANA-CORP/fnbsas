@@ -8,6 +8,7 @@
 import { getPrisma } from "@/lib/prisma";
 import { catatAudit, type AuthUser } from "@/lib/api-helpers";
 import { buatNomorDokumen } from "@/lib/utils";
+import { tenantCreate } from "@/lib/tenant";
 
 export type StatusBayarValue = "LUNAS" | "PARSIAL" | "BELUM_BAYAR";
 export type SumberUtangValue = "PEMBELIAN" | "PINJAMAN" | "INVESTOR";
@@ -71,14 +72,14 @@ export async function rekamPembayaran(user: AuthUser, input: RekamPembayaranInpu
       }
 
       const pembayaran = await tx.pembayaran.create({
-        data: {
+        data: tenantCreate({
           tipe: "PIUTANG",
           piutangId: input.id,
           jumlah: input.jumlah,
           tanggal,
           catatan: input.catatan?.trim() || null,
           userId: user.id,
-        },
+        }, user.tenantId),
       });
 
       const totalTerbayarBaru = totalTerbayarLama + input.jumlah;
@@ -105,14 +106,14 @@ export async function rekamPembayaran(user: AuthUser, input: RekamPembayaranInpu
     }
 
     const pembayaran = await tx.pembayaran.create({
-      data: {
+      data: tenantCreate({
         tipe: "UTANG",
         utangId: input.id,
         jumlah: input.jumlah,
         tanggal,
         catatan: input.catatan?.trim() || null,
         userId: user.id,
-      },
+      }, user.tenantId),
     });
 
     const totalTerbayarBaru = totalTerbayarLama + input.jumlah;
@@ -180,6 +181,8 @@ function validasiItemPembelian(items: ItemPembelianInput[]) {
  * - Buat Utang terkait (sumber PEMBELIAN, pihakNama = nama supplier, totalUtang = total pembelian).
  */
 export async function buatPembelian(user: AuthUser, input: BuatPembelianInput) {
+  const { assertBisaTransaksi } = await import("@/lib/subscription");
+  await assertBisaTransaksi(user);
   validasiItemPembelian(input.items);
 
   const jatuhTempo = new Date(input.jatuhTempo);
@@ -203,7 +206,7 @@ export async function buatPembelian(user: AuthUser, input: BuatPembelianInput) {
 
   const { pembelian, utang } = await prisma.$transaction(async (tx) => {
     const pembelianBaru = await tx.pembelian.create({
-      data: {
+      data: tenantCreate({
         nomor,
         supplierId: input.supplierId,
         outletId: input.outletId || null,
@@ -220,7 +223,7 @@ export async function buatPembelian(user: AuthUser, input: BuatPembelianInput) {
             subtotal: Number(it.qty) * Number(it.hargaSatuan),
           })),
         },
-      },
+      }, user.tenantId),
       include: { items: true },
     });
 
@@ -233,7 +236,7 @@ export async function buatPembelian(user: AuthUser, input: BuatPembelianInput) {
           data: { stok: { increment: item.qty } },
         });
         await tx.stokMovementBahanBaku.create({
-          data: {
+          data: tenantCreate({
             bahanBakuId: item.bahanBakuId,
             tipe: "IN",
             qty: item.qty,
@@ -241,7 +244,7 @@ export async function buatPembelian(user: AuthUser, input: BuatPembelianInput) {
             referensiId: pembelianBaru.id,
             tanggal,
             keterangan: `Pembelian ${nomor} dari ${supplier.nama}`,
-          },
+          }, user.tenantId),
         });
       } else if (item.kemasanId) {
         const km = await tx.kemasan.findUnique({ where: { id: item.kemasanId } });
@@ -251,7 +254,7 @@ export async function buatPembelian(user: AuthUser, input: BuatPembelianInput) {
           data: { stok: { increment: item.qty } },
         });
         await tx.stokMovementKemasan.create({
-          data: {
+          data: tenantCreate({
             kemasanId: item.kemasanId,
             tipe: "IN",
             qty: item.qty,
@@ -259,20 +262,20 @@ export async function buatPembelian(user: AuthUser, input: BuatPembelianInput) {
             referensiId: pembelianBaru.id,
             tanggal,
             keterangan: `Pembelian ${nomor} dari ${supplier.nama}`,
-          },
+          }, user.tenantId),
         });
       }
     }
 
     const utangBaru = await tx.utang.create({
-      data: {
+      data: tenantCreate({
         sumber: "PEMBELIAN",
         pembelianId: pembelianBaru.id,
         pihakNama: supplier.nama,
         totalUtang: total,
         jatuhTempo,
         status: "BELUM_BAYAR",
-      },
+      }, user.tenantId),
     });
 
     return { pembelian: pembelianBaru, utang: utangBaru };
@@ -321,14 +324,14 @@ export async function buatUtangStandalone(user: AuthUser, input: BuatUtangStanda
   }
 
   const utang = await getPrisma().utang.create({
-    data: {
+    data: tenantCreate({
       sumber: input.sumber,
       pihakNama,
       totalUtang: input.jumlah,
       jatuhTempo,
       keterangan: input.keterangan?.trim() || null,
       status: "BELUM_BAYAR",
-    },
+    }, user.tenantId),
   });
 
   await catatAudit({

@@ -3,12 +3,24 @@
 
 import { NextResponse, type NextRequest } from "next/server";
 
-const PUBLIC_PATHS = ["/login", "/api/auth", "/api/health", "/manifest.json", "/sw.js"];
+const PUBLIC_EXACT = new Set(["/", "/daftar", "/harga", "/login"]);
+const PUBLIC_PREFIX = [
+  "/api/auth",
+  "/api/health",
+  "/api/subscription/midtrans/notification",
+  "/manifest.json",
+  "/sw.js",
+  "/uploads",
+  "/icons",
+];
 
 export function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  if (PUBLIC_PATHS.some((p) => pathname.startsWith(p))) {
+  if (
+    PUBLIC_EXACT.has(pathname) ||
+    PUBLIC_PREFIX.some((p) => pathname === p || pathname.startsWith(p + "/") || pathname.startsWith(p))
+  ) {
     return NextResponse.next();
   }
 

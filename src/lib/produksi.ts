@@ -10,6 +10,7 @@
 
 import { getPrisma } from "@/lib/prisma";
 import { buatNomorDokumen } from "@/lib/utils";
+import { tenantCreate } from "@/lib/tenant";
 
 // ---------------------------------------------------------------------------
 // Bagian 1: fungsi murni alokasi HPP (testable, tanpa I/O)
@@ -188,14 +189,14 @@ export async function buatProses(input: BuatProsesInput): Promise<BuatProsesHasi
 
     // 3) Buat Proses
     const proses = await tx.proses.create({
-      data: {
+      data: tenantCreate({
         nomor,
         outletId: input.outletId,
         userId: input.userId,
         nama: input.nama || null,
         catatan: input.catatan || null,
         status: "DRAFT",
-      },
+      }),
     });
 
     // 4) Baris Bahan Baku — kurangi stok, catat pergerakan OUT
@@ -223,7 +224,7 @@ export async function buatProses(input: BuatProsesInput): Promise<BuatProsesHasi
       }
 
       await tx.stokMovementBahanBaku.create({
-        data: {
+        data: tenantCreate({
           bahanBakuId: line.bahanBakuId,
           tipe: "OUT",
           qty: totalKurang,
@@ -233,7 +234,7 @@ export async function buatProses(input: BuatProsesInput): Promise<BuatProsesHasi
             waste > 0
               ? `Proses ${nomor}: pakai ${line.qtyPakai} ${bb.satuan} + waste ${waste} ${bb.satuan}`
               : `Proses ${nomor}: pakai produksi`,
-        },
+        }),
       });
     }
 
@@ -369,13 +370,13 @@ export async function buatOutput(input: BuatOutputInput): Promise<BuatOutputHasi
 
     // 6) Buat Output
     const output = await tx.output.create({
-      data: {
+      data: tenantCreate({
         nomor,
         outletId: input.outletId,
         userId: input.userId,
         catatan: input.catatan || null,
         totalBiaya: alokasi.totalBiayaBatch,
-      },
+      }),
     });
 
     // 7) Junction: Output ↔ Proses
@@ -405,14 +406,14 @@ export async function buatOutput(input: BuatOutputInput): Promise<BuatOutputHasi
       }
 
       await tx.stokMovementKemasan.create({
-        data: {
+        data: tenantCreate({
           kemasanId: line.kemasanId,
           tipe: "OUT",
           qty: line.qtyPakai,
           sumber: "PRODUKSI_PAKAI",
           referensiId: output.id,
           keterangan: `Output ${nomor}: pakai produksi`,
-        },
+        }),
       });
     }
 
@@ -433,14 +434,14 @@ export async function buatOutput(input: BuatOutputInput): Promise<BuatOutputHasi
       });
 
       await tx.stokMovementProdukJadi.create({
-        data: {
+        data: tenantCreate({
           produkJadiId: line.produkJadiId,
           tipe: "IN",
           qty: line.qty,
           sumber: "PRODUKSI_MASUK",
           referensiId: output.id,
           keterangan: `Output ${nomor}: hasil produksi`,
-        },
+        }),
       });
     }
 

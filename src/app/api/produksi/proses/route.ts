@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { withOwnerProduksi, apiError, catatAudit } from "@/lib/api-helpers";
 import { getPrisma } from "@/lib/prisma";
 import { buatProses, ProduksiValidationError } from "@/lib/produksi";
+import { assertBisaTransaksi } from "@/lib/subscription";
 
 /** GET /api/produksi/proses — daftar proses produksi (filter: outletId, status, dari, sampai) */
 export const GET = withOwnerProduksi(async (_user, req) => {
@@ -70,6 +71,8 @@ export const POST = withOwnerProduksi(async (user, req) => {
     }
 
     const bahanBakuLines = Array.isArray(body.bahanBaku) ? body.bahanBaku : [];
+
+    await assertBisaTransaksi(user);
 
     const proses = await buatProses({
       outletId,

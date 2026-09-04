@@ -430,6 +430,24 @@ erDiagram
 
 ---
 
+## 8. SaaS (multi-tenant)
+
+Aplikasi ini dijual ke banyak UMKM. Satu UMKM = satu **tenant**. Data toko A tidak boleh muncul di toko B.
+
+Paket:
+
+| Paket | Transaksi / bulan (WIB) | Max outlet | Harga |
+|---|---|---|---|
+| FREE | 50 (POS + B2B + Proses + Output + Pembelian + Pengeluaran) | 1 | Rp 0 |
+| PRO | Unlimited | 1 | Rp 99.000 / bln atau Rp 990.000 / thn |
+| BUSINESS | Unlimited | 3 | Rp 249.000 / bln atau Rp 2.490.000 / thn |
+
+Pembayaran: transfer/QRIS + upload bukti (admin approve di `/admin`), **atau** Midtrans Snap (webhook aktifkan otomatis). Manual tetap ada walau Midtrans sudah dipasang. Perpanjang dihitung dari sisa masa aktif.
+
+Daftar toko baru di `/daftar` membuat tenant FREE + outlet + owner.
+
+---
+
 ## Status Konfirmasi
 - ✅ Order dengan stok kurang → **diblok**, tidak boleh dipaksa simpan.
 - ✅ Alokasi HPP multi-output → **proporsional per berat/ukuran** (lihat §7 Business Logic poin 5).

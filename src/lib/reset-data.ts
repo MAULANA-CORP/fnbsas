@@ -33,32 +33,37 @@ export async function resetDataAsli(user: AuthUser, konfirmasi: unknown) {
   if (user.role !== "OWNER") {
     throw new ResetDataError("Hanya OWNER yang boleh melakukan Reset Data.");
   }
+  if (!user.tenantId) {
+    throw new ResetDataError("Akun tidak terikat ke toko.");
+  }
 
   const prisma = getPrisma();
+  const tenantId = user.tenantId;
 
   await prisma.$transaction(
     async (tx) => {
-      // Urutan WAJIB: anak sebelum induk, sesuai relasi FK di schema.prisma.
+      // Anak tanpa tenantId di-scope lewat induk. Model bertenantId di-scope
+      // otomatis oleh Prisma extension (tenant context dari withAuth).
       await tx.auditLog.deleteMany({});
       await tx.pembayaran.deleteMany({});
       await tx.stokMovementBahanBaku.deleteMany({});
       await tx.stokMovementKemasan.deleteMany({});
       await tx.stokMovementProdukJadi.deleteMany({});
-      await tx.outputProdukJadi.deleteMany({});
-      await tx.outputKemasan.deleteMany({});
-      await tx.outputProses.deleteMany({});
+      await tx.outputProdukJadi.deleteMany({ where: { output: { tenantId } } });
+      await tx.outputKemasan.deleteMany({ where: { output: { tenantId } } });
+      await tx.outputProses.deleteMany({ where: { output: { tenantId } } });
       await tx.output.deleteMany({});
-      await tx.prosesBahanBaku.deleteMany({});
+      await tx.prosesBahanBaku.deleteMany({ where: { proses: { tenantId } } });
       await tx.proses.deleteMany({});
       await tx.piutang.deleteMany({});
       await tx.utang.deleteMany({});
-      await tx.pembelianItem.deleteMany({});
+      await tx.pembelianItem.deleteMany({ where: { pembelian: { tenantId } } });
       await tx.pembelian.deleteMany({});
       await tx.invoice.deleteMany({});
       await tx.suratJalan.deleteMany({});
-      await tx.orderPOSItem.deleteMany({});
+      await tx.orderPOSItem.deleteMany({ where: { orderPOS: { tenantId } } });
       await tx.orderPOS.deleteMany({});
-      await tx.orderB2BItem.deleteMany({});
+      await tx.orderB2BItem.deleteMany({ where: { orderB2B: { tenantId } } });
       await tx.orderB2B.deleteMany({});
       await tx.modal.deleteMany({});
       await tx.pengeluaran.deleteMany({});

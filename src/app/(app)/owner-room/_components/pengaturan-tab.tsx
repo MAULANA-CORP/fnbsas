@@ -9,6 +9,7 @@ import { Input, Textarea } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, ConfirmDialog } from "@/components/ui/dialog";
 import { EmptyState, LoadingSkeleton } from "@/components/ui/empty-state";
+import { toastApiError } from "@/lib/api-client";
 
 interface Outlet {
   id: string;
@@ -120,7 +121,7 @@ export function PengaturanTab() {
       });
       const data = await res.json();
       if (!res.ok) {
-        toast.error(data.error ?? "Gagal menyimpan outlet");
+        toastApiError(data, "Gagal menyimpan outlet");
         return;
       }
       toast.success(editing ? "Outlet diperbarui" : "Outlet ditambahkan");

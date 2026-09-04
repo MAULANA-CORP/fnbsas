@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { withOwnerProduksi, apiError, catatAudit } from "@/lib/api-helpers";
 import { getPrisma } from "@/lib/prisma";
 import { buatOutput, ProduksiValidationError } from "@/lib/produksi";
+import { assertBisaTransaksi } from "@/lib/subscription";
 
 /** GET /api/produksi/output — daftar output produksi (filter: outletId, dari, sampai) */
 export const GET = withOwnerProduksi(async (_user, req) => {
@@ -80,6 +81,8 @@ export const POST = withOwnerProduksi(async (user, req) => {
     const prosesIds = Array.isArray(body.prosesIds) ? body.prosesIds.map(String) : [];
     const kemasanLines = Array.isArray(body.kemasan) ? body.kemasan : [];
     const outputLines = Array.isArray(body.produkJadi) ? body.produkJadi : Array.isArray(body.output) ? body.output : [];
+
+    await assertBisaTransaksi(user);
 
     const result = await buatOutput({
       outletId,

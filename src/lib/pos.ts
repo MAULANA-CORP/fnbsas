@@ -5,6 +5,8 @@ import { getPrisma } from "@/lib/prisma";
 import { buatNomorDokumen } from "@/lib/utils";
 import { catatAudit, type AuthUser } from "@/lib/api-helpers";
 import { getLatestHppPerUnitMap } from "@/lib/finance";
+import { assertBisaTransaksi } from "@/lib/subscription";
+import { tenantCreate } from "@/lib/tenant";
 
 export type MetodeBayarPOSInput = "CASH" | "TRANSFER_QRIS" | "KREDIT";
 export type KreditTipeInput = "LANGSUNG_LUNAS" | "PARSIAL";
@@ -83,6 +85,7 @@ function tentukanStatusBayar(
  * - Kalau belum lunas (Kredit belum/parsial bayar), buat Piutang terkait.
  */
 export async function buatOrderPOS(user: AuthUser, input: CreateOrderPOSInput) {
+  await assertBisaTransaksi(user);
   validasiInput(input);
 
   const prisma = getPrisma();
@@ -129,7 +132,7 @@ export async function buatOrderPOS(user: AuthUser, input: CreateOrderPOSInput) {
         : null;
 
     const created = await tx.orderPOS.create({
-      data: {
+      data: tenantCreate({
         nomor,
         customerId: input.customerId,
         outletId: input.outletId,
@@ -149,7 +152,7 @@ export async function buatOrderPOS(user: AuthUser, input: CreateOrderPOSInput) {
             hppSatuanSaatItu: hppMap.get(it.produkJadiId)?.hppPerUnit ?? 0,
           })),
         },
-      },
+      }, user.tenantId),
       include: {
         items: { include: { produkJadi: true } },
         customer: true,
@@ -166,38 +169,38 @@ export async function buatOrderPOS(user: AuthUser, input: CreateOrderPOSInput) {
         throw new PosError(`Stok tidak mencukupi untuk diproses, kemungkinan ada transaksi bersamaan.`);
       }
       await tx.stokMovementProdukJadi.create({
-        data: {
+        data: tenantCreate({
           produkJadiId: produkId,
           tipe: "OUT",
           qty: qtyDiminta,
           sumber: "PENJUALAN_POS",
           referensiId: created.id,
           keterangan: `Penjualan POS ${nomor}`,
-        },
+        }, user.tenantId),
       });
     }
 
     // Selalu buat piutang untuk menampung riwayat pembayaran, bahkan untuk CASH lunas
     const piutang = await tx.piutang.create({
-      data: {
+      data: tenantCreate({
         orderPOSId: created.id,
         pihakNama: customer.nama,
         totalTagihan: total,
         totalTerbayar,
         jatuhTempo: tanggalJatuhTempo ?? new Date(),
         status: statusBayar,
-      },
+      }, user.tenantId),
     });
 
     if (totalTerbayar > 0) {
       await tx.pembayaran.create({
-        data: {
+        data: tenantCreate({
           tipe: "PIUTANG",
           piutangId: piutang.id,
           jumlah: totalTerbayar,
           catatan: input.catatan?.trim() || "Pembayaran POS",
           userId: user.id,
-        },
+        }, user.tenantId),
       });
     }
 
@@ -242,14 +245,14 @@ export async function batalOrderPOS(user: AuthUser, id: string) {
         data: { stok: { increment: Number(it.qty) } },
       });
       await tx.stokMovementProdukJadi.create({
-        data: {
+        data: tenantCreate({
           produkJadiId: it.produkJadiId,
           tipe: "IN",
           qty: it.qty,
           sumber: "PENJUALAN_POS",
           referensiId: order.id,
           keterangan: `Batal POS ${order.nomor}`,
-        },
+        }, user.tenantId),
       });
     }
 

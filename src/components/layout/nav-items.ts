@@ -46,6 +46,7 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     label: "Lainnya",
     items: [
+      { href: "/langganan", label: "Langganan", icon: "Sparkles", roles: ["OWNER"] },
       { href: "/panduan", label: "Panduan", icon: "BookOpen", roles: ["OWNER", "FINANCE", "SALES", "PRODUKSI"] },
       { href: "/owner-room", label: "Owner Room", icon: "Settings", roles: ["OWNER"] },
     ],

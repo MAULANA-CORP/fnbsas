@@ -2,12 +2,15 @@ import { NextResponse } from "next/server";
 import { getPrisma } from "@/lib/prisma";
 import { withOwner, catatAudit, apiError } from "@/lib/api-helpers";
 
-// GET /api/owner/pengaturan — baca (dan buat kalau belum ada) baris Pengaturan singleton.
-export const GET = withOwner(async () => {
+// GET /api/owner/pengaturan — baca (dan buat kalau belum ada) baris Pengaturan per tenant.
+export const GET = withOwner(async (user) => {
   try {
+    if (!user.tenantId) {
+      return NextResponse.json({ error: "Akun tidak terikat ke toko" }, { status: 400 });
+    }
     const pengaturan = await getPrisma().pengaturan.upsert({
-      where: { id: "singleton" },
-      create: { id: "singleton" },
+      where: { tenantId: user.tenantId },
+      create: { tenantId: user.tenantId, namaToko: user.tenantNama ?? "Toko Saya" },
       update: {},
     });
     return NextResponse.json({ pengaturan });
@@ -16,9 +19,12 @@ export const GET = withOwner(async () => {
   }
 });
 
-// PATCH /api/owner/pengaturan — ubah nama toko/brand & logo (URL string, belum ada upload file).
+// PATCH /api/owner/pengaturan — ubah nama toko/brand & logo (URL string).
 export const PATCH = withOwner(async (user, req) => {
   try {
+    if (!user.tenantId) {
+      return NextResponse.json({ error: "Akun tidak terikat ke toko" }, { status: 400 });
+    }
     const body = await req.json();
     const namaToko = String(body?.namaToko ?? "").trim();
     const logoUrl = typeof body?.logoUrl === "string" && body.logoUrl.trim() ? body.logoUrl.trim() : null;
@@ -28,8 +34,8 @@ export const PATCH = withOwner(async (user, req) => {
     }
 
     const pengaturan = await getPrisma().pengaturan.upsert({
-      where: { id: "singleton" },
-      create: { id: "singleton", namaToko, logoUrl },
+      where: { tenantId: user.tenantId },
+      create: { tenantId: user.tenantId, namaToko, logoUrl },
       update: { namaToko, logoUrl },
     });
 

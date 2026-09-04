@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
-import { Store, Users, Database, Factory, ShoppingCart, Briefcase, Wallet, LayoutDashboard } from "lucide-react";
+import { Store, Users, Database, Factory, ShoppingCart, Briefcase, Wallet, LayoutDashboard, Sparkles } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardTitle } from "@/components/ui/card";
 
@@ -151,6 +151,24 @@ const steps: Step[] = [
         </p>
       </>
     ),
+  },
+  {
+    no: 9,
+    title: "Paket Langganan (FREE / PRO / BUSINESS)",
+    icon: Sparkles,
+    body: (
+      <>
+        <p>
+          Toko baru mulai dari paket <strong>FREE</strong>: semua modul kebuka, 50 transaksi per bulan, 1 outlet.
+          Transaksi yang dihitung: POS, B2B, Proses, Output, Pembelian, Pengeluaran.
+        </p>
+        <p>
+          Owner buka menu <strong>Langganan</strong>, pilih PRO atau BUSINESS, transfer sesuai rekening, unggah bukti.
+          Admin platform mengaktifkan paketnya. Kalau kuota FREE habis, transaksi baru ditolak sampai naik paket.
+        </p>
+      </>
+    ),
+    contoh: "misal: FREE 50/50 → tombol simpan POS ditolak, Owner kirim bukti PRO, superadmin Aktifkan di /admin",
   },
 ];
 

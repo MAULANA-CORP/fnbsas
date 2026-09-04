@@ -43,6 +43,19 @@ export async function POST(req: Request) {
   if (!user?.passwordHash) return gagal;
   if (!(await bcrypt.compare(String(password), user.passwordHash))) return gagal;
 
+  if (user.tenantId && user.role !== "PLATFORM_ADMIN") {
+    const toko = await getPrisma().tenant.findUnique({
+      where: { id: user.tenantId },
+      select: { isSuspended: true },
+    });
+    if (toko?.isSuspended) {
+      return NextResponse.json(
+        { error: "Toko dinonaktifkan. Hubungi admin Gampangin." },
+        { status: 403 }
+      );
+    }
+  }
+
   const session = await getSession();
   session.userId = user.id;
   session.nama = user.nama;
@@ -55,5 +68,10 @@ export async function POST(req: Request) {
   });
 
   percobaan.delete(ip);
-  return NextResponse.json({ ok: true, nama: user.nama, role: user.role });
+  return NextResponse.json({
+    ok: true,
+    nama: user.nama,
+    role: user.role,
+    tenantId: user.tenantId,
+  });
 }

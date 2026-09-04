@@ -31,9 +31,25 @@ npm run db:seed
 EasyPanel → Domains → `fnb.gampangin.biz.id` → arahkan ke port 3000.
 
 ## 6. Login pertama
-- Username: `admin`
+Toko demo (paket FREE):
+- Username: `admin` (Gampangin FNB) atau `demo2` (Dapur Sebelah — tenant terpisah)
 - Password: `admin123` (atau isi `SEED_ADMIN_PASSWORD`)
-- **Ganti password setelah masuk pertama kali** (lewat Owner Room → User Management).
+
+Admin platform (approve pembayaran langganan):
+- Username: `superadmin`
+- Password: sama seperti di atas
+- Buka `/admin`
+
+**Ganti password setelah masuk pertama kali.**
+
+Isi rekening transfer di env: `SAAS_BANK_NAME`, `SAAS_BANK_ACCOUNT`, `SAAS_BANK_HOLDER`, opsional `SAAS_QRIS_IMAGE_URL`.
+
+Midtrans (opsional): `MIDTRANS_SERVER_KEY`, `MIDTRANS_CLIENT_KEY`, `MIDTRANS_IS_PRODUCTION=false` untuk sandbox.
+Webhook URL di dashboard Midtrans: `https://DOMAIN-KAMU/api/subscription/midtrans/notification`
+
+Mount volume `public/uploads` supaya bukti transfer tidak hilang saat redeploy.
+
+Kalau `db push` gagal karena schema tenant baru di database lama: backup dulu, lalu `npx prisma db push` di database kosong, lalu `npm run db:seed`.
 
 ## Update berikutnya
 Push ke GitHub → EasyPanel → Deploy.

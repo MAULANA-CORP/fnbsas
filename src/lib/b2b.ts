@@ -18,6 +18,7 @@ import type { Prisma } from "@/generated/prisma/client";
 import { getPrisma } from "@/lib/prisma";
 import { catatAudit, type AuthUser } from "@/lib/api-helpers";
 import { buatNomorDokumen } from "@/lib/utils";
+import { tenantCreate } from "@/lib/tenant";
 import { getLatestHppPerUnitMap } from "@/lib/finance";
 
 export class B2BError extends Error {
@@ -67,6 +68,8 @@ export interface BuatOrderInput {
 }
 
 export async function buatOrderB2B(user: AuthUser, input: BuatOrderInput) {
+  const { assertBisaTransaksi } = await import("@/lib/subscription");
+  await assertBisaTransaksi(user);
   const prisma = getPrisma();
 
   if (!input.items?.length) {
@@ -102,11 +105,11 @@ export async function buatOrderB2B(user: AuthUser, input: BuatOrderInput) {
         ? existing.id
         : (
             await tx.agen.create({
-              data: {
+              data: tenantCreate({
                 nama: namaBaru,
                 kontak: input.agenBaru.kontak?.trim() || null,
                 alamat: input.agenBaru.alamat?.trim() || null,
-              },
+              }, user.tenantId),
             })
           ).id;
     }
@@ -149,7 +152,7 @@ export async function buatOrderB2B(user: AuthUser, input: BuatOrderInput) {
 
     // 4) Insert order + items
     const created = await tx.orderB2B.create({
-      data: {
+      data: tenantCreate({
         nomor: buatNomorDokumen("ORDB2B"),
         agenId,
         outletId: input.outletId,
@@ -167,7 +170,7 @@ export async function buatOrderB2B(user: AuthUser, input: BuatOrderInput) {
             hppSatuanSaatItu: hppMap.get(it.produkJadiId)?.hppPerUnit ?? 0,
           })),
         },
-      },
+      }, user.tenantId),
       include: { items: true, agen: true, outlet: true, invoice: true, suratJalan: true, piutang: true },
     });
 
@@ -181,14 +184,14 @@ export async function buatOrderB2B(user: AuthUser, input: BuatOrderInput) {
         throw new B2BError(`Stok tidak mencukupi untuk diproses, kemungkinan ada transaksi bersamaan.`);
       }
       await tx.stokMovementProdukJadi.create({
-        data: {
+        data: tenantCreate({
           produkJadiId,
           tipe: "OUT",
           qty,
           sumber: "PENJUALAN_B2B",
           referensiId: created.id,
           keterangan: `Order B2B ${created.nomor}`,
-        },
+        }, user.tenantId),
       });
     }
 
@@ -230,7 +233,9 @@ export async function terbitkanInvoice(user: AuthUser, orderId: string) {
   });
 
   const updated = await prisma.$transaction(async (tx) => {
-    await tx.invoice.create({ data: { orderB2BId: order.id, nomorInvoice } });
+    await tx.invoice.create({
+      data: tenantCreate({ orderB2BId: order.id, nomorInvoice }, user.tenantId),
+    });
     return tx.orderB2B.update({
       where: { id: order.id },
       data: { status: statusBaru },
@@ -275,7 +280,7 @@ export async function kirimOrder(user: AuthUser, orderId: string, noResi: string
 
   const updated = await prisma.$transaction(async (tx) => {
     await tx.suratJalan.create({
-      data: { orderB2BId: order.id, noResi: noResi.trim() },
+      data: tenantCreate({ orderB2BId: order.id, noResi: noResi.trim() }, user.tenantId),
     });
     return tx.orderB2B.update({
       where: { id: order.id },
@@ -359,27 +364,27 @@ export async function bayarOrder(user: AuthUser, orderId: string, input: BayarOr
     } else {
       // Selalu buat piutang meskipun lunas seketika agar baris Pembayaran bisa tertaut dan dihitung di Arus Kas
       const piutangBaru = await tx.piutang.create({
-        data: {
+        data: tenantCreate({
           orderB2BId: order.id,
           pihakNama: order.agen.nama,
           totalTagihan: total,
           totalTerbayar: terbayarBaru,
           jatuhTempo: jatuhTempoBaru ?? new Date(),
           status: statusBayarBaru,
-        },
+        }, user.tenantId),
       });
       piutangId = piutangBaru.id;
     }
 
     if (piutangId) {
       await tx.pembayaran.create({
-        data: {
+        data: tenantCreate({
           tipe: "PIUTANG",
           piutangId,
           jumlah: input.jumlah,
           catatan: input.catatan?.trim() || null,
           userId: user.id,
-        },
+        }, user.tenantId),
       });
     }
 
@@ -430,14 +435,14 @@ export async function batalOrder(user: AuthUser, orderId: string, alasan?: strin
         data: { stok: { increment: item.qty } },
       });
       await tx.stokMovementProdukJadi.create({
-        data: {
+        data: tenantCreate({
           produkJadiId: item.produkJadiId,
           tipe: "IN",
           qty: item.qty,
           sumber: "ADJUSTMENT",
           referensiId: order.id,
           keterangan: `Pembatalan Order B2B ${order.nomor}`,
-        },
+        }, user.tenantId),
       });
     }
     return tx.orderB2B.update({

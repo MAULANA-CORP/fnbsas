@@ -30,7 +30,9 @@ function LoginForm() {
         return;
       }
       toast.success(`Selamat datang, ${data.nama}`);
-      router.push(params.get("return_to") || "/dashboard");
+      const tujuan =
+        data.role === "PLATFORM_ADMIN" ? "/admin" : params.get("return_to") || "/dashboard";
+      router.push(tujuan);
       router.refresh();
     } catch {
       toast.error("Tidak bisa terhubung ke server");
@@ -70,6 +72,12 @@ function LoginForm() {
           Masuk
         </Button>
       </form>
+      <p className="mt-4 text-center text-sm text-gray-600 dark:text-gray-400">
+        Belum punya toko?{" "}
+        <a href="/daftar" className="font-medium text-blue-700 dark:text-blue-400">
+          Daftar gratis
+        </a>
+      </p>
     </div>
   );
 }

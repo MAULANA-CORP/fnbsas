@@ -11,6 +11,7 @@ import { Input, Textarea } from "@/components/ui/input";
 import { SearchableSelect, type SelectOption } from "@/components/ui/searchable-select";
 import { LoadingSkeleton } from "@/components/ui/empty-state";
 import { formatRupiah, formatAngka } from "@/lib/utils";
+import { toastApiError } from "@/lib/api-client";
 
 // ---------------------------------------------------------------------------
 // Tipe
@@ -216,7 +217,7 @@ export function OutputFormClient() {
         }),
       });
       const json = await res.json();
-      if (!res.ok) { toast.error(json.error ?? "Gagal menyimpan output"); return; }
+      if (!res.ok) { toastApiError(json, "Gagal menyimpan output"); return; }
       toast.success(`Output ${json.data.nomor} berhasil disimpan`);
       router.push("/produksi");
     } catch { toast.error("Tidak bisa terhubung ke server"); }

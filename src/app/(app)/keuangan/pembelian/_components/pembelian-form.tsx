@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input, Textarea } from "@/components/ui/input";
 import { SearchableSelect, type SelectOption } from "@/components/ui/searchable-select";
 import { formatRupiah } from "@/lib/utils";
+import { toastApiError } from "@/lib/api-client";
 import { SupplierCreateDialog } from "./supplier-create-dialog";
 import { itemKosong } from "./types";
 import type { ItemPembelianForm, OutletOption, StokItemOption, SupplierOption } from "./types";
@@ -130,7 +131,7 @@ export function PembelianForm({
       });
       const data = await res.json();
       if (!res.ok) {
-        toast.error(data.error ?? "Gagal mencatat pembelian");
+        toastApiError(data, "Gagal mencatat pembelian");
         return;
       }
       toast.success(`Pembelian ${data.data.nomor} tersimpan — stok bertambah, utang tercatat`);

@@ -80,12 +80,12 @@ export function OutputDetailClient({ id }: { id: string }) {
       <PageHeader
         title={data.nomor}
         description={`Output produksi · ${formatTanggal(data.tanggal)}`}
-        actions={
-          <Button variant="outline" size="sm" asChild>
-            <Link href="/produksi">
+        action={
+          <Link href="/produksi">
+            <Button variant="secondary" size="sm">
               <ArrowLeft className="mr-2 h-4 w-4" /> Kembali
-            </Link>
-          </Button>
+            </Button>
+          </Link>
         }
       />
 
@@ -144,7 +144,7 @@ export function OutputDetailClient({ id }: { id: string }) {
                     </Link>
                     {p.nama && <span className="ml-2 text-sm text-muted-foreground">({p.nama})</span>}
                   </div>
-                  <Badge variant={p.status === "SELESAI" ? "default" : "secondary"}>{p.status}</Badge>
+                  <Badge tone={p.status === "SELESAI" ? "green" : "gray"}>{p.status}</Badge>
                 </div>
               ))}
             </div>

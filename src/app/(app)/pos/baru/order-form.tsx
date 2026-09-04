@@ -11,6 +11,7 @@ import { Input, Textarea } from "@/components/ui/input";
 import { SearchableSelect, type SelectOption } from "@/components/ui/searchable-select";
 import { Dialog } from "@/components/ui/dialog";
 import { formatRupiah } from "@/lib/utils";
+import { toastApiError } from "@/lib/api-client";
 import { METODE_BAYAR_OPTIONS, KREDIT_TIPE_OPTIONS } from "../_lib";
 
 interface Produk {
@@ -259,7 +260,7 @@ export function OrderPOSForm() {
       });
       const data = await res.json();
       if (!res.ok) {
-        toast.error(data.error ?? "Gagal menyimpan order");
+        toastApiError(data, "Gagal menyimpan order");
         return;
       }
       toast.success(`Order ${data.order.nomor} berhasil disimpan`);

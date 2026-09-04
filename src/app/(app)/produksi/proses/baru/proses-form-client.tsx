@@ -11,6 +11,7 @@ import { Input, Textarea } from "@/components/ui/input";
 import { SearchableSelect, type SelectOption } from "@/components/ui/searchable-select";
 import { LoadingSkeleton } from "@/components/ui/empty-state";
 import { formatRupiah, formatAngka } from "@/lib/utils";
+import { toastApiError } from "@/lib/api-client";
 
 // ---------------------------------------------------------------------------
 // Tipe & util lokal
@@ -184,7 +185,7 @@ export function ProsesFormClient() {
       });
       const json = await res.json();
       if (!res.ok) {
-        toast.error(json.error ?? "Gagal menyimpan proses");
+        toastApiError(json, "Gagal menyimpan proses");
         return;
       }
       toast.success(`Proses ${json.data.nomor} berhasil disimpan`);

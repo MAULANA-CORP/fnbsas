@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getPrisma } from "@/lib/prisma";
 import { withOwner, catatAudit, apiError } from "@/lib/api-helpers";
+import { assertBisaTambahOutlet } from "@/lib/subscription";
 
 // GET /api/owner/outlets — semua outlet (aktif & nonaktif) untuk dikelola di Owner Room.
 export const GET = withOwner(async () => {
@@ -22,6 +23,8 @@ export const POST = withOwner(async (user, req) => {
     if (!nama) {
       return NextResponse.json({ error: "Nama outlet wajib diisi" }, { status: 400 });
     }
+
+    await assertBisaTambahOutlet(user);
 
     const outlet = await getPrisma().outlet.create({ data: { nama, alamat } });
 
