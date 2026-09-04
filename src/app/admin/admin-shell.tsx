@@ -29,7 +29,7 @@ export function AdminShell({ nama, children }: { nama: string; children: React.R
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-gray-200 bg-background px-4 dark:border-zinc-800">
+      <header className="sticky top-0 z-30 flex min-h-14 flex-wrap items-center justify-between border-b border-gray-200 bg-background px-4 py-2 dark:border-zinc-800">
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
             <div className="rounded-lg bg-[#B42318] p-1.5">
