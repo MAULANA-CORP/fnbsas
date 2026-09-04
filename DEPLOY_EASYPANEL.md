@@ -1,65 +1,138 @@
 # Deploy Gampangin FNB ke EasyPanel
 
-## 1. Buat PostgreSQL
-EasyPanel → Services → New Service → **PostgreSQL**.
-Catat host, port, user, password, nama database.
-Connection string: `postgresql://USER:PASSWORD@HOST:5432/DATABASE`
-Pakai **host internal**, bukan alamat publik.
+Repo sudah di GitHub: `https://github.com/MAULANA-CORP/fnbsas.git` (branch `main`).
+**Tidak ada folder `prisma/migrations`** — schema di-sync pakai `prisma db push`, bukan `migrate deploy`.
 
-## 2. Push ke GitHub
-```bash
-git init && git add . && git commit -m "initial commit"
-git remote add origin <url-repo>
-git push -u origin master
+## 1. PostgreSQL
+
+EasyPanel → **New Service** → **PostgreSQL**.
+
+Catat (dari tab Credentials / Connection):
+
+- host **internal** (nama service, bukan IP publik)
+- port (biasanya `5432`)
+- user, password, nama database
+
+Jadikan:
+
 ```
-Pastikan `.env` **tidak** ikut ter-commit (cek `.gitignore`).
+postgresql://USER:PASSWORD@HOST_INTERNAL:5432/NAMA_DB
+```
 
-## 3. Buat App
-New Service → **App** → Source: GitHub → pilih repo
-- Build Method: **Dockerfile**
-- Port: **3000**
-- Isi semua environment variable dari `.env.example`
+Kalau password ada `@ : / # ?` encode dulu (contoh `@` → `%40`).
 
-## 4. Migrasi + seed (sekali saja)
-Setelah container jalan, buka Terminal service app:
+## 2. App
+
+**New Service** → **App**
+
+| Setting | Isi |
+|---|---|
+| Source | GitHub `MAULANA-CORP/fnbsas` branch `main` |
+| Build Method | **Dockerfile** |
+| Port | **3000** |
+| Command | jangan diisi (pakai `node server.js` dari Dockerfile) |
+
+**Volume (wajib):**
+
+- Host path: volume baru, mis. `fnbsas-uploads`
+- Container path: `/app/public/uploads`
+
+## 3. Environment
+
+Isi di EasyPanel **sebelum** Deploy pertama:
+
+```
+NODE_ENV=production
+PORT=3000
+HOSTNAME=0.0.0.0
+DATABASE_URL=postgresql://USER:PASSWORD@HOST_INTERNAL:5432/NAMA_DB
+SESSION_SECRET=ganti_dengan_string_acak_minimal_32_karakter
+SESSION_COOKIE_NAME=gampangin_fnb_session
+SEED_ADMIN_PASSWORD=password-kuat-buat-login-pertama
+```
+
+Opsional (boleh kosong dulu):
+
+```
+SAAS_BANK_NAME=BCA
+SAAS_BANK_ACCOUNT=
+SAAS_BANK_HOLDER=
+SAAS_QRIS_IMAGE_URL=
+MIDTRANS_SERVER_KEY=
+MIDTRANS_CLIENT_KEY=
+MIDTRANS_IS_PRODUCTION=false
+```
+
+Rekening juga bisa diisi nanti dari `/admin` → **Rekening**.
+
+Generate `SESSION_SECRET` (di laptop):
+
 ```bash
-npx prisma migrate deploy
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+```
+
+## 4. Deploy
+
+Klik **Deploy**. Tunggu build Dockerfile selesai (bisa beberapa menit).
+
+Kalau gagal: buka log build. Yang sering: `DATABASE_URL` belum diisi, atau GitHub repo tidak terhubung.
+
+## 5. Schema + seed (sekali, setelah container hijau)
+
+Buka **Terminal / Console** service App:
+
+```bash
+npx prisma db push
+npx prisma generate
 npm run db:seed
 ```
 
-## 5. Domain
-EasyPanel → Domains → `fnb.gampangin.biz.id` → arahkan ke port 3000.
+Kalau `npx prisma` **not found** (image production slim):
 
-## 6. Login pertama
-Toko demo (paket FREE):
-- Username: `admin` (Gampangin FNB) atau `demo2` (Dapur Sebelah — tenant terpisah)
-- Password: `admin123` (atau isi `SEED_ADMIN_PASSWORD`)
+1. Di laptop, sementara buka PostgreSQL EasyPanel ke publik / pakai connection yang bisa diakses
+2. Dari folder `fnbsas` lokal:
 
-Admin platform (approve pembayaran langganan):
-- Username: `superadmin`
-- Password: sama seperti di atas
-- Buka `/admin`
+```bash
+npx prisma db push
+npm run db:seed
+```
 
-**Ganti password setelah masuk pertama kali.**
+dengan `DATABASE_URL` mengarah ke DB server (bukan localhost).
 
-Isi rekening transfer di env: `SAAS_BANK_NAME`, `SAAS_BANK_ACCOUNT`, `SAAS_BANK_HOLDER`, opsional `SAAS_QRIS_IMAGE_URL`.
+Setelah tabel + seed masuk, tutup akses publik DB kalau sempat dibuka.
 
-Midtrans (opsional): `MIDTRANS_SERVER_KEY`, `MIDTRANS_CLIENT_KEY`, `MIDTRANS_IS_PRODUCTION=false` untuk sandbox.
-Webhook URL di dashboard Midtrans: `https://DOMAIN-KAMU/api/subscription/midtrans/notification`
+## 6. Domain
 
-Mount volume `public/uploads` supaya bukti transfer tidak hilang saat redeploy.
+EasyPanel → service App → **Domains** → `fnb.gampangin.biz.id` (atau domain kamu) → port **3000** → HTTPS.
 
-Kalau `db push` gagal karena schema tenant baru di database lama: backup dulu, lalu `npx prisma db push` di database kosong, lalu `npm run db:seed`.
+Webhook Midtrans (kalau key sudah diisi):
+
+`https://DOMAIN-KAMU/api/subscription/midtrans/notification`
+
+## 7. Cek login
+
+| Username | Fungsi |
+|---|---|
+| `admin` | Owner toko demo Gampangin FNB |
+| `demo2` | Owner toko kedua (isolasi data) |
+| `superadmin` | Admin platform → `/admin` |
+
+Password = nilai `SEED_ADMIN_PASSWORD`. **Ganti setelah masuk.**
+
+Cek: landing `/` kebuka, `/admin` ringkasan kebuka, upload bukti di `/langganan` tidak 500.
 
 ## Update berikutnya
-Push ke GitHub → EasyPanel → Deploy.
-Kalau schema database berubah, jalankan lagi `npx prisma migrate deploy`.
+
+Push ke `main` → EasyPanel → **Deploy**.
+
+Kalau ada perubahan `schema.prisma`, jalankan lagi `npx prisma db push` (bukan migrate deploy).
 
 ## Kalau bermasalah
+
 | Gejala | Cek |
 |---|---|
-| Build gagal di `prisma generate` | Blok `generator` di `prisma/schema.prisma` |
-| Runtime error koneksi DB | `DATABASE_URL` pakai host internal? |
-| Login gagal terus | Sudah jalan `npm run db:seed`? |
-| Halaman blank / 500 | Cek log container, biasanya env kurang (`SESSION_SECRET`) |
-| Menu tidak muncul sesuai role | Role dibaca fresh dari DB tiap request — cek kolom `role` user di tabel `users` |
+| App crash / 500 | `DATABASE_URL` host internal? `SESSION_SECRET` ≥ 32 karakter? |
+| Login gagal terus | Seed sudah jalan? Username/password seed? |
+| Build gagal Prisma | Biarkan `DATABASE_URL` palsu di Dockerfile untuk generate |
+| Bukti transfer hilang setelah redeploy | Volume `/app/public/uploads` belum di-mount |
+| `npx prisma` tidak ada di container | Push schema dari laptop ke DB EasyPanel (langkah 5) |
