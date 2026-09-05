@@ -28,6 +28,7 @@ export const GET = withOwnerProduksi(async (_user, _req, ctx: { params: Promise<
         kemasan: {
           include: { kemasan: { select: { id: true, nama: true, satuan: true } } },
         },
+        biayaLain: true,
       },
     });
 
@@ -41,9 +42,12 @@ export const GET = withOwnerProduksi(async (_user, _req, ctx: { params: Promise<
       0
     );
 
+    // Total biaya lain
+    const totalBiayaLain = Number(output.totalBiayaLain);
+
     // Total biaya = totalBiaya di record (sudah termasuk proses + kemasan)
     const totalBiaya = Number(output.totalBiaya);
-    const totalBiayaProses = totalBiaya - totalBiayaKemasan;
+    const totalBiayaProses = totalBiaya - totalBiayaKemasan - totalBiayaLain;
 
     // Hitung total berat semua output
     const totalBeratSemuaOutput = output.produkJadi.reduce((sum, o) => {
@@ -60,6 +64,12 @@ export const GET = withOwnerProduksi(async (_user, _req, ctx: { params: Promise<
       totalBiaya,
       totalBiayaProses,
       totalBiayaKemasan,
+      totalBiayaLain,
+      biayaLain: output.biayaLain.map((b) => ({
+        id: b.id,
+        keterangan: b.keterangan,
+        jumlah: Number(b.jumlah),
+      })),
       outlet: output.outlet,
       user: output.user,
       proses: output.proses.map((op) => ({

@@ -13,6 +13,13 @@ import { SearchableSelect, type SelectOption } from "@/components/ui/searchable-
 import { formatRupiah, formatAngka } from "@/lib/utils";
 import { toastApiError } from "@/lib/api-client";
 
+const METODE_OPTIONS: SelectOption[] = [
+  { value: "CASH", label: "Cash", hint: "Bayar langsung, order otomatis lunas" },
+  { value: "TRANSFER_QRIS", label: "Transfer / QRIS", hint: "Bayar langsung, order otomatis lunas" },
+  { value: "KREDIT", label: "Kredit", hint: "Cicilan tempo, buat Piutang" },
+];
+
+
 interface AgenOpt {
   id: string;
   nama: string;
@@ -59,6 +66,7 @@ export function OrderFormClient({
   const [outletId, setOutletId] = React.useState<string | null>(defaultOutletId ?? outletList[0]?.id ?? null);
   const [rows, setRows] = React.useState<Row[]>([baris()]);
   const [catatan, setCatatan] = React.useState("");
+  const [metodeBayar, setMetodeBayar] = React.useState<string>("TRANSFER_QRIS");
   const [submitting, setSubmitting] = React.useState(false);
 
   const [dialogAgenOpen, setDialogAgenOpen] = React.useState(false);
@@ -112,6 +120,8 @@ export function OrderFormClient({
   const total = rincian.reduce((s, r) => s + r.subtotal, 0);
   const adaStokKurang = rincian.some((r) => r.stokKurang);
   const adaItemBelumLengkap = rincian.some((r) => !r.row.produkJadiId || r.qty <= 0);
+  const isKredit = metodeBayar === "KREDIT";
+
 
   async function buatAgenBaru() {
     if (!agenBaruNama.trim()) {
@@ -176,6 +186,7 @@ export function OrderFormClient({
           agenId,
           outletId,
           catatan,
+          metodeBayar,
           items: rincian.map((r) => ({
             produkJadiId: r.row.produkJadiId,
             qty: r.qty,
@@ -236,6 +247,28 @@ export function OrderFormClient({
               value={outletId}
               onChange={setOutletId}
             />
+            <div>
+              <SearchableSelect
+                label="Metode Bayar"
+                required
+                placeholder="Pilih metode..."
+                searchPlaceholder="Cari metode..."
+                emptyText="Metode tidak ditemukan"
+                options={METODE_OPTIONS}
+                value={metodeBayar}
+                onChange={(v) => setMetodeBayar(v ?? "TRANSFER_QRIS")}
+              />
+              {!isKredit && (
+                <p className="mt-1 text-xs text-blue-600 dark:text-blue-400">
+                  Order akan otomatis lunas saat disimpan.
+                </p>
+              )}
+              {isKredit && (
+                <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">
+                  Kredit — cicilan tempo, Piutang akan dibuat.
+                </p>
+              )}
+            </div>
           </div>
         </Card>
 

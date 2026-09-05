@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Plus, Trash2, Package, Boxes } from "lucide-react";
+import { Plus, Trash2, Package, Boxes, DollarSign } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -19,7 +19,7 @@ import { toastApiError } from "@/lib/api-client";
 
 interface OpsiOutlet { id: string; nama: string; }
 interface OpsiItem { id: string; nama: string; satuan: string; stok: number; }
-interface OpsiProdukJadi extends OpsiItem { beratBersih: number | null; harga: number; }
+interface OpsiProdukJadi extends OpsiItem { beratBersih: number | null; harga: number; kemasanId: string | null; qtyKemasanPerUnit: number | null; }
 interface ProsesSelesai { id: string; nomor: string; nama: string | null; totalBiaya: number; }
 
 interface OpsiData {
@@ -40,6 +40,12 @@ interface KemasanBaris {
   kemasanId: string | null;
   qtyPakai: string;
   hargaSatuan: string;
+}
+
+interface BiayaLainBaris {
+  key: string;
+  keterangan: string;
+  jumlah: string;
 }
 
 let counter = 0;
@@ -67,6 +73,8 @@ export function OutputFormClient() {
   const [selectedProsesIds, setSelectedProsesIds] = React.useState<string[]>([]);
   const [outputBaris, setOutputBaris] = React.useState<OutputBaris[]>([]);
   const [kemasanBaris, setKemasanBaris] = React.useState<KemasanBaris[]>([]);
+  const [autoKemasan, setAutoKemasan] = React.useState(true);
+  const [biayaLainBaris, setBiayaLainBaris] = React.useState<BiayaLainBaris[]>([]);
 
   // Maps
   const produkJadiMap = React.useMemo(() => new Map(produkJadiList.map((p) => [p.id, p])), [produkJadiList]);
@@ -115,9 +123,59 @@ export function OutputFormClient() {
     [kemasanBaris]
   );
 
+  // Total biaya lain
+  const totalBiayaLain = React.useMemo(
+    () => biayaLainBaris.reduce((sum, b) => sum + num(b.jumlah), 0),
+    [biayaLainBaris]
+  );
+
+  // Auto-kemasan: generate kemasan lines from output baris when autoKemasan is ON
+  React.useEffect(() => {
+    if (!autoKemasan) return;
+
+    const validOutputs = outputBaris.filter((o) => o.produkJadiId && num(o.qty) > 0);
+    if (validOutputs.length === 0) {
+      // Only clear if there are auto-generated lines (no manual lines mixed in)
+      setKemasanBaris((prev) => {
+        // Keep only lines that were not auto-generated (user-added)
+        // Since all lines are overwritten when auto is ON, clear them
+        return [];
+      });
+      return;
+    }
+
+    // Aggregate kemasan needs per kemasanId
+    const kebutuhan = new Map<string, number>();
+    for (const o of validOutputs) {
+      const pj = produkJadiMap.get(o.produkJadiId!);
+      if (!pj?.kemasanId) continue;
+      const qtyKemasanPerUnit = Number(pj.qtyKemasanPerUnit ?? 1);
+      const totalQty = num(o.qty) * qtyKemasanPerUnit;
+      kebutuhan.set(pj.kemasanId, (kebutuhan.get(pj.kemasanId) ?? 0) + totalQty);
+    }
+
+    if (kebutuhan.size === 0) {
+      setKemasanBaris([]);
+      return;
+    }
+
+    // Build new kemasan baris
+    const newBaris: KemasanBaris[] = [];
+    for (const [kemasanId, qtyPakai] of kebutuhan) {
+      const k = kemasanMap.get(kemasanId);
+      newBaris.push({
+        key: keyBaru(),
+        kemasanId,
+        qtyPakai: String(qtyPakai),
+        hargaSatuan: "0", // default 0 — user can adjust
+      });
+    }
+    setKemasanBaris(newBaris);
+  }, [outputBaris, autoKemasan, produkJadiMap, kemasanMap]);
+
   // HPP preview
   const hppPreview = React.useMemo(() => {
-    const totalBiayaBatch = totalBiayaProses + totalBiayaKemasan;
+    const totalBiayaBatch = totalBiayaProses + totalBiayaKemasan + totalBiayaLain;
     const outputValid = outputBaris.filter((o) => o.produkJadiId && num(o.qty) > 0);
     if (outputValid.length === 0) return null;
 
@@ -142,7 +200,7 @@ export function OutputFormClient() {
         hppPerUnit: o.qty > 0 ? (hppPerGram * o.totalBerat) / o.qty : 0,
       })),
     };
-  }, [totalBiayaProses, totalBiayaKemasan, outputBaris, produkJadiMap]);
+  }, [totalBiayaProses, totalBiayaKemasan, totalBiayaLain, outputBaris, produkJadiMap]);
 
   // Validasi stok kemasan
   const peringatanStok = React.useMemo(() => {
@@ -175,11 +233,18 @@ export function OutputFormClient() {
     setOutputBaris((prev) => prev.map((o) => (o.key === key ? { ...o, ...patch } : o)));
   }
 
-  // Kemasan baris CRUD
+  // Kemasan baris CRUD (only used when autoKemasan is OFF)
   function tambahKemasanBaris() { setKemasanBaris((prev) => [...prev, { key: keyBaru(), kemasanId: null, qtyPakai: "", hargaSatuan: "" }]); }
   function hapusKemasanBaris(key: string) { setKemasanBaris((prev) => prev.filter((k) => k.key !== key)); }
   function updateKemasanBaris(key: string, patch: Partial<KemasanBaris>) {
     setKemasanBaris((prev) => prev.map((k) => (k.key === key ? { ...k, ...patch } : k)));
+  }
+
+  // Biaya lain CRUD
+  function tambahBiayaLain() { setBiayaLainBaris((prev) => [...prev, { key: keyBaru(), keterangan: "", jumlah: "" }]); }
+  function hapusBiayaLain(key: string) { setBiayaLainBaris((prev) => prev.filter((b) => b.key !== key)); }
+  function updateBiayaLain(key: string, patch: Partial<BiayaLainBaris>) {
+    setBiayaLainBaris((prev) => prev.map((b) => (b.key === key ? { ...b, ...patch } : b)));
   }
 
   // Submit
@@ -199,6 +264,9 @@ export function OutputFormClient() {
     }
     if (peringatanStok.length > 0) { toast.error(peringatanStok[0]); return; }
 
+    // Validate biaya lain — skip empty lines
+    const biayaLainValid = biayaLainBaris.filter((b) => b.keterangan.trim() || num(b.jumlah) > 0);
+
     setSubmitting(true);
     try {
       const res = await fetch("/api/produksi/output", {
@@ -208,11 +276,16 @@ export function OutputFormClient() {
           outletId,
           catatan: catatan || undefined,
           prosesIds: selectedProsesIds,
+          autoKemasan,
           produkJadi: outputValid.map((o) => ({ produkJadiId: o.produkJadiId, qty: num(o.qty) })),
           kemasan: kemasanValid.map((k) => ({
             kemasanId: k.kemasanId,
             qtyPakai: num(k.qtyPakai),
             hargaSatuanSaatItu: num(k.hargaSatuan),
+          })),
+          biayaLain: biayaLainValid.map((b) => ({
+            keterangan: b.keterangan.trim(),
+            jumlah: num(b.jumlah),
           })),
         }),
       });
@@ -302,14 +375,35 @@ export function OutputFormClient() {
             <CardTitle className="flex items-center gap-2">
               <Package className="h-4 w-4" /> Kemasan Dipakai
             </CardTitle>
-            <Button type="button" variant="secondary" size="lg" onClick={tambahKemasanBaris}>
-              <Plus className="h-4 w-4" /> Tambah
-            </Button>
+            {!autoKemasan && (
+              <Button type="button" variant="secondary" size="lg" onClick={tambahKemasanBaris}>
+                <Plus className="h-4 w-4" /> Tambah
+              </Button>
+            )}
           </CardHeader>
+          {/* Auto Kemasan toggle */}
+          <div className="px-6 pb-3">
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={autoKemasan}
+                onChange={(e) => setAutoKemasan(e.target.checked)}
+                className="h-4 w-4 rounded"
+              />
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Auto Kemasan</span>
+              <span className="text-xs text-gray-500 dark:text-gray-400">(otomatis isi dari produk jadi)</span>
+            </label>
+          </div>
           {kemasanBaris.length === 0 ? (
-            <p className="text-sm text-gray-500 dark:text-gray-400">Tidak wajib diisi kalau tidak pakai kemasan.</p>
+            <div className="px-6 pb-4">
+              {autoKemasan ? (
+                <p className="text-sm text-gray-500 dark:text-gray-400">Kemasan akan otomatis terisi saat Anda menambahkan produk jadi.</p>
+              ) : (
+                <p className="text-sm text-gray-500 dark:text-gray-400">Tidak wajib diisi kalau tidak pakai kemasan.</p>
+              )}
+            </div>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-3 px-6 pb-4">
               {kemasanBaris.map((k) => {
                 const options: SelectOption[] = kemasanList.map((km) => ({ value: km.id, label: `${km.nama} (${km.satuan}) — stok: ${formatAngka(km.stok, 0)}` }));
                 return (
@@ -325,16 +419,63 @@ export function OutputFormClient() {
           )}
         </Card>
 
+        {/* Biaya Lain */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <DollarSign className="h-4 w-4" /> Biaya Lain
+            </CardTitle>
+            <Button type="button" variant="secondary" size="lg" onClick={tambahBiayaLain}>
+              <Plus className="h-4 w-4" /> Tambah Biaya
+            </Button>
+          </CardHeader>
+          {biayaLainBaris.length === 0 ? (
+            <div className="px-6 pb-4">
+              <p className="text-sm text-gray-500 dark:text-gray-400">Tidak wajib diisi. Tambahkan biaya tambahan seperti gas, bensin, dll.</p>
+            </div>
+          ) : (
+            <div className="space-y-3 px-6 pb-4">
+              {biayaLainBaris.map((b) => (
+                <div key={b.key} className="grid gap-3 sm:grid-cols-[1fr_150px_40px] items-end">
+                  <Input label="Keterangan" value={b.keterangan} onChange={(e) => updateBiayaLain(b.key, { keterangan: e.target.value })} placeholder="Mis. Gas, Bensin, dll." />
+                  <Input label="Jumlah (Rp)" type="number" min="0" step="any" value={b.jumlah} onChange={(e) => updateBiayaLain(b.key, { jumlah: e.target.value })} placeholder="0" />
+                  <Button type="button" variant="danger" size="sm" onClick={() => hapusBiayaLain(b.key)} className="mb-0.5"><Trash2 className="h-4 w-4" /></Button>
+                </div>
+              ))}
+              {totalBiayaLain > 0 && (
+                <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Total Biaya Lain: {formatRupiah(totalBiayaLain)}
+                </p>
+              )}
+            </div>
+          )}
+        </Card>
+
         {/* Preview HPP */}
         {hppPreview && (
           <Card>
             <CardHeader><CardTitle>Preview HPP</CardTitle></CardHeader>
             <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-3">
+              {/* Breakdown */}
+              <div className="grid gap-3 text-sm sm:grid-cols-2">
                 <div>
-                  <p className="text-gray-500 dark:text-gray-500">Total Biaya Batch</p>
+                  <p className="text-gray-500 dark:text-gray-500">Bahan Baku (Proses)</p>
+                  <p className="font-semibold text-gray-900 dark:text-gray-50">{formatRupiah(totalBiayaProses)}</p>
+                </div>
+                <div>
+                  <p className="text-gray-500 dark:text-gray-500">Kemasan</p>
+                  <p className="font-semibold text-gray-900 dark:text-gray-50">{formatRupiah(totalBiayaKemasan)}</p>
+                </div>
+                <div>
+                  <p className="text-gray-500 dark:text-gray-500">Biaya Lain</p>
+                  <p className="font-semibold text-gray-900 dark:text-gray-50">{formatRupiah(totalBiayaLain)}</p>
+                </div>
+                <div>
+                  <p className="text-gray-500 dark:text-gray-500">Total HPP</p>
                   <p className="font-semibold text-gray-900 dark:text-gray-50">{formatRupiah(hppPreview.totalBiayaBatch)}</p>
                 </div>
+              </div>
+              <div className="grid gap-3 text-sm sm:grid-cols-2">
                 <div>
                   <p className="text-gray-500 dark:text-gray-500">Total Berat Output</p>
                   <p className="font-semibold text-gray-900 dark:text-gray-50">{formatAngka(hppPreview.totalBeratSemuaOutput, 0)} gr</p>

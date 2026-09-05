@@ -38,6 +38,7 @@ export function EntityTab({ entity, role }: { entity: EntityUiConfig; role: Role
   const [editing, setEditing] = React.useState<Row | null>(null);
   const [formValues, setFormValues] = React.useState<Record<string, string>>({});
   const [saving, setSaving] = React.useState(false);
+  const [remoteOptions, setRemoteOptions] = React.useState<Record<string, { value: string; label: string }[]>>({});
 
   const [deleteTarget, setDeleteTarget] = React.useState<Row | null>(null);
   const [deleting, setDeleting] = React.useState(false);
@@ -67,11 +68,36 @@ export function EntityTab({ entity, role }: { entity: EntityUiConfig; role: Role
     load();
   }, [load]);
 
+  // Fetch remote options for select fields when form opens
+  const fetchRemoteOptions = React.useCallback(async () => {
+    const fieldsWithRemote = entity.fields.filter((f) => f.type === "select" && f.remoteOptionsUrl);
+    if (fieldsWithRemote.length === 0) return;
+
+    const newRemoteOptions: Record<string, { value: string; label: string }[]> = {};
+    await Promise.all(
+      fieldsWithRemote.map(async (f) => {
+        try {
+          const res = await fetch(f.remoteOptionsUrl!);
+          const data = await res.json();
+          const items = data.items ?? data.data ?? [];
+          newRemoteOptions[f.key] = items.map((item: Record<string, unknown>) => ({
+            value: String(item.id ?? ""),
+            label: String(item.nama ?? ""),
+          }));
+        } catch {
+          newRemoteOptions[f.key] = [];
+        }
+      })
+    );
+    setRemoteOptions((prev) => ({ ...prev, ...newRemoteOptions }));
+  }, [entity.fields]);
+
   function openCreate() {
     setEditing(null);
     const initial: Record<string, string> = {};
     for (const f of entity.fields) initial[f.key] = f.defaultValue ?? "";
     setFormValues(initial);
+    fetchRemoteOptions();
     setFormOpen(true);
   }
 
@@ -83,6 +109,7 @@ export function EntityTab({ entity, role }: { entity: EntityUiConfig; role: Role
       initial[f.key] = v === null || v === undefined ? "" : String(v);
     }
     setFormValues(initial);
+    fetchRemoteOptions();
     setFormOpen(true);
   }
 
@@ -101,6 +128,9 @@ export function EntityTab({ entity, role }: { entity: EntityUiConfig; role: Role
         const raw = formValues[f.key] ?? "";
         if (f.type === "number") {
           body[f.key] = raw.trim() === "" ? (f.required ? 0 : null) : Number(raw);
+        } else if (f.type === "select") {
+          // Nullable select: empty value → null
+          body[f.key] = raw.trim() === "" ? null : raw.trim();
         } else {
           body[f.key] = raw.trim();
         }
@@ -294,7 +324,9 @@ export function EntityTab({ entity, role }: { entity: EntityUiConfig; role: Role
                   value={formValues[f.key] || null}
                   onChange={(v) => setFormValues((prev) => ({ ...prev, [f.key]: v ?? "" }))}
                   options={
-                    f.key === "satuan"
+                    f.remoteOptionsUrl
+                      ? (remoteOptions[f.key] ?? [])
+                      : f.key === "satuan"
                       ? satuanOptionsWithCurrent(formValues[f.key])
                       : [...(f.options ?? [])]
                   }

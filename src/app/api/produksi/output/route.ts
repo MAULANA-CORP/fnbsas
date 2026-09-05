@@ -40,6 +40,7 @@ export const GET = withOwnerProduksi(async (_user, req) => {
           },
         },
         kemasan: { select: { id: true, qtyPakai: true, hargaSatuanSaatItu: true } },
+        biayaLain: true,
       },
     });
 
@@ -49,6 +50,7 @@ export const GET = withOwnerProduksi(async (_user, req) => {
       tanggal: o.tanggal,
       catatan: o.catatan,
       totalBiaya: Number(o.totalBiaya),
+      totalBiayaLain: Number(o.totalBiayaLain),
       outlet: o.outlet,
       user: o.user,
       jumlahProses: o.proses.length,
@@ -60,6 +62,11 @@ export const GET = withOwnerProduksi(async (_user, req) => {
         hppAlokasi: Number(op.hppAlokasi),
       })),
       jumlahKemasan: o.kemasan.length,
+      biayaLain: o.biayaLain.map((b) => ({
+        id: b.id,
+        keterangan: b.keterangan,
+        jumlah: Number(b.jumlah),
+      })),
     }));
 
     return NextResponse.json({ data });
@@ -82,6 +89,19 @@ export const POST = withOwnerProduksi(async (user, req) => {
     const kemasanLines = Array.isArray(body.kemasan) ? body.kemasan : [];
     const outputLines = Array.isArray(body.produkJadi) ? body.produkJadi : Array.isArray(body.output) ? body.output : [];
 
+    // Parse biaya lain array
+    const biayaLain = Array.isArray(body.biayaLain)
+      ? body.biayaLain
+          .filter((b: Record<string, unknown>) => b && typeof b.keterangan === "string" && b.keterangan.trim())
+          .map((b: Record<string, unknown>) => ({
+            keterangan: String(b.keterangan).trim(),
+            jumlah: Number(b.jumlah ?? 0),
+          }))
+      : [];
+
+    // Parse autoKemasan flag
+    const autoKemasan = body.autoKemasan !== false;
+
     await assertBisaTransaksi(user);
 
     const result = await buatOutput({
@@ -98,6 +118,8 @@ export const POST = withOwnerProduksi(async (user, req) => {
         produkJadiId: String(l.produkJadiId ?? ""),
         qty: Number(l.qty),
       })),
+      biayaLain: biayaLain.length > 0 ? biayaLain : undefined,
+      autoKemasan,
     });
 
     await catatAudit({

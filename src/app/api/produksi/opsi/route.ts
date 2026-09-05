@@ -18,7 +18,10 @@ export const GET = withOwnerProduksi(async () => {
         select: { id: true, nama: true, satuan: true, stok: true },
       }),
       prisma.produkJadi.findMany({ take: 200, orderBy: { nama: "asc" },
-        select: { id: true, nama: true, satuan: true, beratBersih: true, stok: true },
+        select: {
+          id: true, nama: true, satuan: true, beratBersih: true,
+          kemasanId: true, qtyKemasanPerUnit: true, stok: true,
+        },
       }),
       // Proses yang sudah SELESAI, bisa dipilih untuk Output
       prisma.proses.findMany({
@@ -44,7 +47,12 @@ export const GET = withOwnerProduksi(async () => {
         outlets,
         bahanBaku: bahanBaku.map((b) => ({ ...b, stok: Number(b.stok), hargaRataRata: Number(b.hargaRataRata) })),
         kemasan: kemasan.map((k) => ({ ...k, stok: Number(k.stok) })),
-        produkJadi: produkJadi.map((p) => ({ ...p, stok: Number(p.stok) })),
+        produkJadi: produkJadi.map((p) => ({
+          ...p,
+          stok: Number(p.stok),
+          kemasanId: p.kemasanId ?? null,
+          qtyKemasanPerUnit: p.qtyKemasanPerUnit != null ? Number(p.qtyKemasanPerUnit) : 1,
+        })),
         prosesSelesai: prosesSelesai.map((p) => ({
           id: p.id,
           nomor: p.nomor,

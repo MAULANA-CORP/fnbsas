@@ -232,6 +232,9 @@ export function OrderDetailClient({ orderId, role }: { orderId: string; role: "O
         action={
           <div className="flex flex-wrap items-center gap-2">
             <OrderStatusBadge status={order.status} />
+            <Badge tone={order.metodeBayar === "KREDIT" ? "amber" : "green"}>
+              {order.metodeBayar === "CASH" ? "💵 Cash" : order.metodeBayar === "KREDIT" ? "📋 Kredit" : "💳 Transfer/QRIS"}
+            </Badge>
             {order.invoice && (
               <Link
                 href={`/b2b/${order.id}/invoice`}

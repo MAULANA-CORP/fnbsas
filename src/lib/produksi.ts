@@ -2,7 +2,7 @@
 // 2-step flow: Proses (input bahan baku, kurangi stok) → Output (produk jadi + kemasan, hitung HPP).
 //
 // Rumus HPP (PRD §7):
-//   totalBiayaBatch      = Σ(biaya dari semua Proses terkait) + Σ(kemasan.qtyPakai × hargaSatuanSaatItu)
+//   totalBiayaBatch      = Σ(biaya dari semua Proses terkait) + Σ(kemasan.qtyPakai × hargaSatuanSaatItu) + totalBiayaLain
 //   totalBeratOutput(x)  = (produkJadi.beratBersih ?? 1[fallback qty]) × qty(x)
 //   totalBeratSemuaOutput = Σ totalBeratOutput(x)
 //   hppPerGram            = totalBiayaBatch ÷ totalBeratSemuaOutput
@@ -53,6 +53,7 @@ export interface OutputLineHasil {
 export interface HasilAlokasiBatch {
   totalBiayaBahanBaku: number;
   totalBiayaKemasan: number;
+  totalBiayaLain: number;
   totalBiayaBatch: number;
   totalBeratSemuaOutput: number;
   /** Rp per gram (atau per unit berat proxy). */
@@ -72,11 +73,12 @@ export interface HasilAlokasiBatch {
 export function hitungAlokasiHPP(
   bahanBaku: BahanBakuLineInput[],
   kemasan: KemasanLineInput[],
-  output: OutputLineInput[]
+  output: OutputLineInput[],
+  totalBiayaLain: number = 0
 ): HasilAlokasiBatch {
   const totalBiayaBahanBaku = bahanBaku.reduce((sum, b) => sum + (b.qtyPakai + (b.qtyWaste ?? 0)) * (b.hargaSatuanSaatItu ?? 0), 0);
   const totalBiayaKemasan = kemasan.reduce((sum, k) => sum + k.qtyPakai * k.hargaSatuanSaatItu, 0);
-  const totalBiayaBatch = totalBiayaBahanBaku + totalBiayaKemasan;
+  const totalBiayaBatch = totalBiayaBahanBaku + totalBiayaKemasan + totalBiayaLain;
 
   const withBerat = output.map((o) => {
     const beratFallback = o.beratBersih == null;
@@ -106,6 +108,7 @@ export function hitungAlokasiHPP(
   return {
     totalBiayaBahanBaku,
     totalBiayaKemasan,
+    totalBiayaLain,
     totalBiayaBatch,
     totalBeratSemuaOutput,
     hppPerGram,
@@ -255,6 +258,11 @@ export async function buatProses(input: BuatProsesInput): Promise<BuatProsesHasi
 // Bagian 3: transaksi pembuatan Output (Step 2)
 // ---------------------------------------------------------------------------
 
+export interface BiayaLainInput {
+  keterangan: string;
+  jumlah: number;
+}
+
 export interface BuatOutputInput {
   outletId: string;
   userId: string;
@@ -262,6 +270,10 @@ export interface BuatOutputInput {
   prosesIds: string[];
   kemasan: KemasanLineInput[];
   output: Array<{ produkJadiId: string; qty: number }>;
+  /** Biaya tambahan (gas, bensin, dll). */
+  biayaLain?: BiayaLainInput[];
+  /** Jika true, otomatis generate baris kemasan dari kemasan default tiap Produk Jadi. Default: true. */
+  autoKemasan?: boolean;
 }
 
 export interface BuatOutputHasil {
@@ -272,8 +284,11 @@ export interface BuatOutputHasil {
 }
 
 /**
- * Buat Output baru (Step 2): validasi → hitung biaya dari Proses terkait + kemasan
+ * Buat Output baru (Step 2): validasi → hitung biaya dari Proses terkait + kemasan + biaya lain
  * → hitung alokasi HPP → kurangi stok kemasan → tambah stok produk jadi.
+ *
+ * auto-kemasan: jika autoKemasan=true dan tidak ada manual kemasan, otomatis generate
+ * baris kemasan dari ProdukJadi.kemasanId + qtyKemasanPerUnit.
  */
 export async function buatOutput(input: BuatOutputInput): Promise<BuatOutputHasil> {
   if (input.prosesIds.length === 0) {
@@ -282,20 +297,19 @@ export async function buatOutput(input: BuatOutputInput): Promise<BuatOutputHasi
   if (input.output.length === 0) {
     throw new ProduksiValidationError("Minimal 1 output produk jadi harus diisi.");
   }
-  for (const k of input.kemasan) {
-    if (!(k.qtyPakai > 0)) throw new ProduksiValidationError("Qty pakai kemasan harus lebih dari 0.");
-    if (!(k.hargaSatuanSaatItu >= 0)) throw new ProduksiValidationError("Harga satuan kemasan tidak valid.");
-  }
   for (const o of input.output) {
     if (!(o.qty > 0)) throw new ProduksiValidationError("Qty output harus lebih dari 0.");
   }
+  // Validate biaya lain
+  for (const b of (input.biayaLain ?? [])) {
+    if (!b.keterangan?.trim()) throw new ProduksiValidationError("Keterangan biaya lain wajib diisi.");
+    if (!(b.jumlah >= 0)) throw new ProduksiValidationError("Jumlah biaya lain tidak valid.");
+  }
 
   const prisma = getPrisma();
+  const autoKemasan = input.autoKemasan !== false; // default true
 
   return prisma.$transaction(async (tx) => {
-    const kemasanIds = [...new Set(input.kemasan.map((k) => k.kemasanId))];
-    const produkJadiIds = [...new Set(input.output.map((o) => o.produkJadiId))];
-
     // 1) Ambil data Proses yang dipilih — harus SELESAI
     const prosesList = await tx.proses.findMany({
       where: { id: { in: input.prosesIds } },
@@ -329,20 +343,66 @@ export async function buatOutput(input: BuatOutputInput): Promise<BuatOutputHasi
       }
     }
 
-    // 3) Ambil data kemasan & produk jadi
-    const [kemasanList, produkJadiList] = await Promise.all([
-      kemasanIds.length > 0 ? tx.kemasan.findMany({ where: { id: { in: kemasanIds } } }) : Promise.resolve([]),
-      tx.produkJadi.findMany({ where: { id: { in: produkJadiIds } } }),
-    ]);
-
-    const kemasanMap = new Map(kemasanList.map((k) => [k.id, k]));
+    // 3) Ambil data produk jadi (untuk auto-kemasan)
+    const produkJadiIds = [...new Set(input.output.map((o) => o.produkJadiId))];
+    const produkJadiList = await tx.produkJadi.findMany({
+      where: { id: { in: produkJadiIds } },
+      include: { kemasan: true },
+    });
     const produkJadiMap = new Map(produkJadiList.map((p) => [p.id, p]));
 
-    // 4) Validasi stok kemasan
+    for (const line of input.output) {
+      if (!produkJadiMap.has(line.produkJadiId)) {
+        throw new ProduksiValidationError("Ada produk jadi output yang tidak ditemukan di database.");
+      }
+    }
+
+    // 4) Auto-generate kemasan lines jika autoKemasan=true dan tidak ada manual kemasan
+    let kemasanLines = [...input.kemasan];
+    if (autoKemasan && kemasanLines.length === 0) {
+      // Aggregate kemasan needs from each output line
+      const kemasanAggregated = new Map<string, number>(); // kemasanId -> total qty needed
+      for (const line of input.output) {
+        const pj = produkJadiMap.get(line.produkJadiId)!;
+        if (pj.kemasanId && pj.qtyKemasanPerUnit) {
+          const qtyNeeded = line.qty * Number(pj.qtyKemasanPerUnit);
+          kemasanAggregated.set(pj.kemasanId, (kemasanAggregated.get(pj.kemasanId) ?? 0) + qtyNeeded);
+        }
+      }
+
+      // Fetch kemasan prices for the aggregated kemasan IDs
+      if (kemasanAggregated.size > 0) {
+        const kemasanIds = [...kemasanAggregated.keys()];
+        const kemasanList = await tx.kemasan.findMany({ where: { id: { in: kemasanIds } } });
+        const kemasanMap = new Map(kemasanList.map((k) => [k.id, k]));
+
+        for (const [kemasanId, qtyPakai] of kemasanAggregated) {
+          const kemasan = kemasanMap.get(kemasanId);
+          if (!kemasan) {
+            throw new ProduksiValidationError(`Kemasan ${kemasanId} tidak ditemukan.`);
+          }
+          kemasanLines.push({
+            kemasanId,
+            qtyPakai,
+            hargaSatuanSaatItu: 0, // Kemasan master doesn't track price; manual kemasan lines can override
+          });
+        }
+      }
+    }
+
+    // 5) Validate stok kemasan
     const kebutuhanKemasan = new Map<string, number>();
-    for (const line of input.kemasan) {
+    for (const line of kemasanLines) {
       kebutuhanKemasan.set(line.kemasanId, (kebutuhanKemasan.get(line.kemasanId) ?? 0) + line.qtyPakai);
     }
+
+    // Fetch kemasan data for validation
+    const allKemasanIds = [...new Set(kemasanLines.map((k) => k.kemasanId))];
+    const kemasanList = allKemasanIds.length > 0
+      ? await tx.kemasan.findMany({ where: { id: { in: allKemasanIds } } })
+      : [];
+    const kemasanMap = new Map(kemasanList.map((k) => [k.id, k]));
+
     for (const [kemasanId, butuh] of kebutuhanKemasan) {
       const k = kemasanMap.get(kemasanId);
       if (!k) throw new ProduksiValidationError("Ada kemasan yang tidak ditemukan di database.");
@@ -353,27 +413,24 @@ export async function buatOutput(input: BuatOutputInput): Promise<BuatOutputHasi
       }
     }
 
-    for (const line of input.output) {
-      if (!produkJadiMap.has(line.produkJadiId)) {
-        throw new ProduksiValidationError("Ada produk jadi output yang tidak ditemukan di database.");
-      }
-    }
+    // 6) Hitung total biaya lain
+    const totalBiayaLain = (input.biayaLain ?? []).reduce((sum, b) => sum + b.jumlah, 0);
 
-    // 5) Hitung alokasi HPP — biaya bahan baku dari proses + biaya kemasan
-    // Representasikan biaya proses sebagai 1 baris "bahan baku virtual"
+    // 7) Hitung alokasi HPP — biaya bahan baku dari proses + biaya kemasan + biaya lain
     const alokasi = hitungAlokasiHPP(
       [{ bahanBakuId: "__proses__", qtyPakai: 1, qtyWaste: 0, hargaSatuanSaatItu: totalBiayaProses }],
-      input.kemasan,
+      kemasanLines,
       input.output.map((o) => ({
         produkJadiId: o.produkJadiId,
         qty: o.qty,
         beratBersih: produkJadiMap.get(o.produkJadiId)?.beratBersih ?? null,
-      }))
+      })),
+      totalBiayaLain
     );
 
     const nomor = buatNomorDokumen("OUT");
 
-    // 6) Buat Output
+    // 8) Buat Output
     const output = await tx.output.create({
       data: tenantCreate({
         nomor,
@@ -381,18 +438,19 @@ export async function buatOutput(input: BuatOutputInput): Promise<BuatOutputHasi
         userId: input.userId,
         catatan: input.catatan || null,
         totalBiaya: alokasi.totalBiayaBatch,
+        totalBiayaLain,
       }),
     });
 
-    // 7) Junction: Output ↔ Proses
+    // 9) Junction: Output ↔ Proses
     for (const prosesId of input.prosesIds) {
       await tx.outputProses.create({
         data: { outputId: output.id, prosesId },
       });
     }
 
-    // 8) Baris Kemasan — kurangi stok, catat pergerakan OUT
-    for (const line of input.kemasan) {
+    // 10) Baris Kemasan — kurangi stok, catat pergerakan OUT
+    for (const line of kemasanLines) {
       await tx.outputKemasan.create({
         data: {
           outputId: output.id,
@@ -422,7 +480,18 @@ export async function buatOutput(input: BuatOutputInput): Promise<BuatOutputHasi
       });
     }
 
-    // 9) Baris Output — tambah stok produk jadi, simpan hppAlokasi, catat pergerakan IN
+    // 11) Baris Biaya Lain
+    for (const b of (input.biayaLain ?? [])) {
+      await tx.outputBiayaLain.create({
+        data: {
+          outputId: output.id,
+          keterangan: b.keterangan.trim(),
+          jumlah: b.jumlah,
+        },
+      });
+    }
+
+    // 12) Baris Output — tambah stok produk jadi, simpan hppAlokasi, catat pergerakan IN
     for (const line of alokasi.output) {
       await tx.outputProdukJadi.create({
         data: {

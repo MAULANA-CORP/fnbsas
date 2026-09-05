@@ -20,6 +20,8 @@ export interface EntityFieldDef {
   money?: boolean;
   /** Opsi dropdown (type: "select"). CSV import tetap teks bebas yang harus cocok value-nya. */
   options?: readonly { value: string; label: string }[];
+  /** URL API untuk memuat opsi dropdown secara dinamis (type: "select"). */
+  remoteOptionsUrl?: string;
   /** Nilai awal form saat Tambah (bukan saat Edit). */
   defaultValue?: string;
 }
@@ -65,6 +67,8 @@ export const ENTITY_DEFS = {
       { key: "nama", label: "Nama", type: "text", required: true },
       { key: "satuan", label: "Satuan", type: "select", required: true, options: SATUAN_OPTIONS, defaultValue: "pcs" },
       { key: "beratBersih", label: "Berat Bersih (gr)", type: "number", integer: true },
+      { key: "kemasanId", label: "Kemasan", type: "select", remoteOptionsUrl: "/api/database/kemasan" },
+      { key: "qtyKemasanPerUnit", label: "Qty Kemasan per Unit", type: "number", defaultValue: "1" },
       { key: "harga", label: "Harga", type: "number", optionalNumberDefaultsToZero: true, money: true },
       { key: "stok", label: "Stok", type: "number", optionalNumberDefaultsToZero: true },
       { key: "stokMinimum", label: "ROP (Stok Min.)", type: "number", optionalNumberDefaultsToZero: true },

@@ -53,6 +53,10 @@ export const ENTITY_UI: EntityUiConfig[] = [
       stok: STOK_HINT,
       beratBersih:
         "Isi berat/ukuran bersih dalam gram untuk produk yang dijual per ukuran (mis. \"Chili Oil 100gr\" → isi 100). Dipakai untuk alokasi HPP produksi multi-output secara proporsional per berat, bukan rata per botol. Boleh dikosongkan kalau tidak relevan.",
+      kemasanId:
+        "Kemasan default yang dipakai untuk produk ini. Digunakan otomatis saat membuat Output produksi (jika auto-kemasan aktif). Boleh dikosongkan.",
+      qtyKemasanPerUnit:
+        "Berapa banyak kemasan yang dipakai per 1 unit output produk ini (mis. 1 botol per 1 unit). Default: 1.",
     },
     emptyLabel: "Belum ada data Produk Jadi",
   },

@@ -7,6 +7,8 @@ function serialize(item: {
   nama: string;
   satuan: string;
   beratBersih: number | null;
+  kemasanId: string | null;
+  qtyKemasanPerUnit: unknown;
   harga: unknown;
   stok: unknown;
   stokMinimum: unknown;
@@ -18,6 +20,8 @@ function serialize(item: {
     nama: item.nama,
     satuan: item.satuan,
     beratBersih: item.beratBersih,
+    kemasanId: item.kemasanId ?? null,
+    qtyKemasanPerUnit: item.qtyKemasanPerUnit != null ? Number(item.qtyKemasanPerUnit) : 1,
     harga: Number(item.harga),
     stok: Number(item.stok),
     stokMinimum: Number(item.stokMinimum),
@@ -34,9 +38,7 @@ function toBeratBersih(value: unknown): number | null {
 
 function isForeignKeyError(error: unknown): boolean {
   return (
-    !!error &&
-    typeof error === "object" &&
-    "code" in error &&
+    !!error && typeof error === "object" && "code" in error &&
     ((error as { code: string }).code === "P2003" || (error as { code: string }).code === "P2014")
   );
 }
@@ -58,12 +60,17 @@ export const PUT = withOwner<{ params: Promise<{ id: string }> }>(async (user, r
       return NextResponse.json({ error: "Nama produk jadi sudah dipakai" }, { status: 400 });
     }
 
+    const kemasanId = body.kemasanId ? String(body.kemasanId) : null;
+    const qtyKemasanPerUnit = body.qtyKemasanPerUnit != null ? Number(body.qtyKemasanPerUnit) : 1;
+
     const item = await getPrisma().produkJadi.update({
       where: { id },
       data: {
         nama,
         satuan,
         beratBersih: toBeratBersih(body.beratBersih),
+        kemasanId,
+        qtyKemasanPerUnit,
         harga: Number(body.harga ?? 0),
         stok: Number(body.stok ?? 0),
         stokMinimum: Number(body.stokMinimum ?? 0),

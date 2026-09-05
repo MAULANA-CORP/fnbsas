@@ -138,6 +138,9 @@ export function OrderListClient({ role }: { role: "OWNER" | "FINANCE" | "SALES" 
                     </td>
                     <td className="py-3 pr-3">
                       <OrderStatusBadge status={o.status} />
+                      <span className="ml-1 text-xs text-gray-500 dark:text-gray-400">
+                        {o.metodeBayar === "CASH" ? "Cash" : o.metodeBayar === "KREDIT" ? "Kredit" : ""}
+                      </span>
                     </td>
                     <td className="py-3 pr-0 text-right">
                       <Link

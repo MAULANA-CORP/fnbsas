@@ -65,6 +65,7 @@ export interface BuatOrderInput {
   outletId: string;
   items: BuatOrderItemInput[];
   catatan?: string;
+  metodeBayar?: "CASH" | "TRANSFER_QRIS" | "KREDIT";
 }
 
 export async function buatOrderB2B(user: AuthUser, input: BuatOrderInput) {
@@ -161,6 +162,7 @@ export async function buatOrderB2B(user: AuthUser, input: BuatOrderInput) {
         subtotal: subtotalOrder,
         total: subtotalOrder,
         catatan: input.catatan?.trim() || null,
+        metodeBayar: input.metodeBayar ?? "TRANSFER_QRIS",
         items: {
           create: input.items.map((it) => ({
             produkJadiId: it.produkJadiId,
@@ -192,6 +194,28 @@ export async function buatOrderB2B(user: AuthUser, input: BuatOrderInput) {
           referensiId: created.id,
           keterangan: `Order B2B ${created.nomor}`,
         }, user.tenantId),
+      });
+    }
+    // 6) Auto lunas untuk Cash & Transfer_QRIS — terbitkan invoice + piutang + status LUNAS
+    const metodeBayar = input.metodeBayar ?? "TRANSFER_QRIS";
+    if (metodeBayar === "CASH" || metodeBayar === "TRANSFER_QRIS") {
+      const nomorInvoice = buatNomorDokumen("INV");
+      await tx.invoice.create({
+        data: tenantCreate({ orderB2BId: created.id, nomorInvoice }, user.tenantId),
+      });
+      await tx.piutang.create({
+        data: tenantCreate({
+          orderB2BId: created.id,
+          pihakNama: agen.nama,
+          totalTagihan: subtotalOrder,
+          totalTerbayar: subtotalOrder,
+          jatuhTempo: new Date(),
+          status: "LUNAS",
+        }, user.tenantId),
+      });
+      await tx.orderB2B.update({
+        where: { id: created.id },
+        data: { statusBayar: "LUNAS", status: "LUNAS" },
       });
     }
 

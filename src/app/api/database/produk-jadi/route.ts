@@ -7,6 +7,8 @@ function serialize(item: {
   nama: string;
   satuan: string;
   beratBersih: number | null;
+  kemasanId: string | null;
+  qtyKemasanPerUnit: unknown;
   harga: unknown;
   stok: unknown;
   stokMinimum: unknown;
@@ -18,6 +20,8 @@ function serialize(item: {
     nama: item.nama,
     satuan: item.satuan,
     beratBersih: item.beratBersih,
+    kemasanId: item.kemasanId ?? null,
+    qtyKemasanPerUnit: item.qtyKemasanPerUnit != null ? Number(item.qtyKemasanPerUnit) : 1,
     harga: Number(item.harga),
     stok: Number(item.stok),
     stokMinimum: Number(item.stokMinimum),
@@ -40,9 +44,13 @@ export const GET = withAuth(async (_user, req) => {
 
     const items = await getPrisma().produkJadi.findMany({ take: 200, where: search ? { nama: { contains: search, mode: "insensitive" } } : undefined,
       orderBy: { nama: "asc" },
+      include: { kemasan: { select: { id: true, nama: true } } },
     });
 
-    return NextResponse.json({ items: items.map(serialize) });
+    return NextResponse.json({ items: items.map((item) => ({
+      ...serialize(item),
+      kemasan: item.kemasan ?? null,
+    })) });
   } catch (error) {
     return apiError(error);
   }
@@ -64,11 +72,16 @@ export const POST = withOwner(async (user, req) => {
       return NextResponse.json({ error: "Nama produk jadi sudah dipakai" }, { status: 400 });
     }
 
+    const kemasanId = body.kemasanId ? String(body.kemasanId) : null;
+    const qtyKemasanPerUnit = body.qtyKemasanPerUnit != null ? Number(body.qtyKemasanPerUnit) : 1;
+
     const item = await getPrisma().produkJadi.create({
       data: {
         nama,
         satuan,
         beratBersih: toBeratBersih(body.beratBersih),
+        kemasanId,
+        qtyKemasanPerUnit,
         harga: Number(body.harga ?? 0),
         stok: Number(body.stok ?? 0),
         stokMinimum: Number(body.stokMinimum ?? 0),

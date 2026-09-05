@@ -60,6 +60,7 @@ export const POST = withOwnerSales(async (user, req) => {
       outletId: String(body.outletId ?? ""),
       items,
       catatan: body.catatan,
+      metodeBayar: body.metodeBayar,
     });
 
     return NextResponse.json({ data: serializeOrder(order) }, { status: 201 });

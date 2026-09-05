@@ -27,6 +27,12 @@ interface KemasanInfo {
   subtotal: number;
 }
 
+interface BiayaLainInfo {
+  id: string;
+  keterangan: string;
+  jumlah: number;
+}
+
 interface ProdukJadiInfo {
   id: string;
   produkJadi: { id: string; nama: string; satuan: string; beratBersih: number | null };
@@ -46,6 +52,8 @@ interface OutputDetail {
   totalBiaya: number;
   totalBiayaProses: number;
   totalBiayaKemasan: number;
+  totalBiayaLain: number;
+  biayaLain: BiayaLainInfo[];
   outlet: { id: string; nama: string };
   user: { id: string; nama: string };
   proses: ProsesInfo[];
@@ -115,6 +123,10 @@ export function OutputDetailClient({ id }: { id: string }) {
             <div>
               <dt className="text-muted-foreground">Biaya Kemasan</dt>
               <dd className="font-medium">{formatRupiah(data.totalBiayaKemasan)}</dd>
+            </div>
+            <div>
+              <dt className="text-muted-foreground">Biaya Lain</dt>
+              <dd className="font-medium">{formatRupiah(data.totalBiayaLain)}</dd>
             </div>
             {data.catatan && (
               <div className="col-span-2">
@@ -209,6 +221,36 @@ export function OutputDetailClient({ id }: { id: string }) {
           </table>
         </CardContent>
       </Card>
+
+      {/* Biaya Lain */}
+      {data.biayaLain.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Biaya Lain</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b text-left text-muted-foreground">
+                  <th className="pb-2">Keterangan</th>
+                  <th className="pb-2 text-right">Jumlah</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.biayaLain.map((b) => (
+                  <tr key={b.id} className="border-b last:border-0">
+                    <td className="py-2 font-medium">{b.keterangan}</td>
+                    <td className="py-2 text-right">{formatRupiah(b.jumlah)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {data.totalBiayaLain > 0 && (
+              <p className="mt-2 text-sm font-medium text-right">Total Biaya Lain: {formatRupiah(data.totalBiayaLain)}</p>
+            )}
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

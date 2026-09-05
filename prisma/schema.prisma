@@ -420,6 +420,7 @@ model Kemasan {
   tenant         Tenant?               @relation(fields: [tenantId], references: [id])
   pembelianItem  PembelianItem[]
   outputKemasan  OutputKemasan[]
+  produkJadi     ProdukJadi[]
   stokMovement   StokMovementKemasan[]
 
   @@index([tenantId])
@@ -433,6 +434,8 @@ model ProdukJadi {
   nama         String
   satuan       String @default("pcs")
   beratBersih  Int? // gram — dipakai untuk alokasi HPP produksi multi-output
+  kemasanId          String?          // kemasan yang dipakai untuk produk ini
+  qtyKemasanPerUnit  Decimal? @default(1) @db.Decimal(15, 3) // berapa kemasan per 1 unit output
   harga        Decimal  @default(0) @db.Decimal(15, 2)
   stok         Decimal  @default(0) @db.Decimal(15, 3)
   stokMinimum  Decimal  @default(0) @db.Decimal(15, 3)
@@ -440,6 +443,7 @@ model ProdukJadi {
   updatedAt    DateTime @updatedAt
 
   tenant           Tenant?                   @relation(fields: [tenantId], references: [id])
+  kemasan          Kemasan?                  @relation(fields: [kemasanId], references: [id])
   orderPOSItem     OrderPOSItem[]
   orderB2BItem     OrderB2BItem[]
   outputProdukJadi OutputProdukJadi[]
@@ -447,6 +451,7 @@ model ProdukJadi {
 
   @@index([tenantId])
   @@index([nama])
+  @@index([kemasanId])
   @@map("produk_jadi")
 }
 
@@ -766,6 +771,7 @@ model Output {
   userId     String
   tanggal    DateTime @default(now())
   totalBiaya Decimal  @default(0) @db.Decimal(15, 2) // HPP total dari semua proses terkait
+  totalBiayaLain Decimal @default(0) @db.Decimal(15, 2) // biaya tambahan (gas, bensin, dll)
   catatan    String?
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
@@ -776,12 +782,25 @@ model Output {
   proses     OutputProses[]    // junction → bisa gabung dari beberapa Proses
   produkJadi OutputProdukJadi[]
   kemasan    OutputKemasan[]
+  biayaLain  OutputBiayaLain[]
 
   @@unique([tenantId, nomor])
   @@index([tenantId])
   @@index([outletId])
   @@index([tanggal])
   @@map("outputs")
+}
+
+model OutputBiayaLain {
+  id          String  @id @default(cuid())
+  outputId    String
+  keterangan  String  // "Gas Memasak", "Bensin Antar", dll
+  jumlah      Decimal @db.Decimal(15, 2)
+
+  output Output @relation(fields: [outputId], references: [id], onDelete: Cascade)
+
+  @@index([outputId])
+  @@map("output_biaya_lain")
 }
 
 // Junction: Output ↔ Proses (many-to-many)
