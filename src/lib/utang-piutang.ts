@@ -231,9 +231,20 @@ export async function buatPembelian(user: AuthUser, input: BuatPembelianInput) {
       if (item.bahanBakuId) {
         const bb = await tx.bahanBaku.findUnique({ where: { id: item.bahanBakuId } });
         if (!bb) throw new UtangPiutangError("Salah satu Bahan Baku tidak ditemukan");
+
+        // Hitung average cost: (hargaLama × stokLama + hargaBaru × qtyBaru) / (stokLama + qtyBaru)
+        const stokLama = Number(bb.stok);
+        const hargaLama = Number(bb.hargaRataRata);
+        const qtyBaru = Number(item.qty);
+        const hargaBaru = Number(item.hargaSatuan);
+        const stokBaru = stokLama + qtyBaru;
+        const hargaRataRataBaru = stokBaru > 0
+          ? Math.round(((hargaLama * stokLama + hargaBaru * qtyBaru) / stokBaru) * 100) / 100
+          : hargaBaru;
+
         await tx.bahanBaku.update({
           where: { id: item.bahanBakuId },
-          data: { stok: { increment: item.qty } },
+          data: { stok: { increment: item.qty }, hargaRataRata: hargaRataRataBaru },
         });
         await tx.stokMovementBahanBaku.create({
           data: tenantCreate({

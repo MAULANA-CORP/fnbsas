@@ -20,7 +20,7 @@ export interface BahanBakuLineInput {
   bahanBakuId: string;
   qtyPakai: number;
   qtyWaste?: number;
-  hargaSatuanSaatItu: number;
+  hargaSatuanSaatItu?: number; // optional — jika tidak dikirim, ambil dari hargaRataRata DB
 }
 
 export interface KemasanLineInput {
@@ -74,7 +74,7 @@ export function hitungAlokasiHPP(
   kemasan: KemasanLineInput[],
   output: OutputLineInput[]
 ): HasilAlokasiBatch {
-  const totalBiayaBahanBaku = bahanBaku.reduce((sum, b) => sum + (b.qtyPakai + (b.qtyWaste ?? 0)) * b.hargaSatuanSaatItu, 0);
+  const totalBiayaBahanBaku = bahanBaku.reduce((sum, b) => sum + (b.qtyPakai + (b.qtyWaste ?? 0)) * (b.hargaSatuanSaatItu ?? 0), 0);
   const totalBiayaKemasan = kemasan.reduce((sum, k) => sum + k.qtyPakai * k.hargaSatuanSaatItu, 0);
   const totalBiayaBatch = totalBiayaBahanBaku + totalBiayaKemasan;
 
@@ -146,7 +146,6 @@ export async function buatProses(input: BuatProsesInput): Promise<BuatProsesHasi
   for (const b of input.bahanBaku) {
     if (!(b.qtyPakai > 0)) throw new ProduksiValidationError("Qty pakai bahan baku harus lebih dari 0.");
     if (b.qtyWaste != null && b.qtyWaste < 0) throw new ProduksiValidationError("Qty waste tidak boleh negatif.");
-    if (!(b.hargaSatuanSaatItu >= 0)) throw new ProduksiValidationError("Harga satuan bahan baku tidak valid.");
   }
 
   const prisma = getPrisma();
@@ -179,9 +178,15 @@ export async function buatProses(input: BuatProsesInput): Promise<BuatProsesHasi
       }
     }
 
-    // 2) Hitung total biaya bahan baku
+    // 2) Resolve harga dari DB (average cost) & hitung total biaya
+    for (const line of input.bahanBaku) {
+      if (line.hargaSatuanSaatItu == null) {
+        const bb = bahanBakuMap.get(line.bahanBakuId);
+        line.hargaSatuanSaatItu = bb ? Number(bb.hargaRataRata) : 0;
+      }
+    }
     const totalBiaya = input.bahanBaku.reduce(
-      (sum, b) => sum + (b.qtyPakai + (b.qtyWaste ?? 0)) * b.hargaSatuanSaatItu,
+      (sum, b) => sum + (b.qtyPakai + (b.qtyWaste ?? 0)) * b.hargaSatuanSaatItu!,
       0
     );
 
@@ -211,7 +216,7 @@ export async function buatProses(input: BuatProsesInput): Promise<BuatProsesHasi
           bahanBakuId: line.bahanBakuId,
           qtyPakai: line.qtyPakai,
           qtyWaste: waste,
-          hargaSatuanSaatItu: line.hargaSatuanSaatItu,
+          hargaSatuanSaatItu: line.hargaSatuanSaatItu!,
         },
       });
 

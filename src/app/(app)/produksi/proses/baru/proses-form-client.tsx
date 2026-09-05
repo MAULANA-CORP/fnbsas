@@ -22,6 +22,7 @@ interface OpsiItem {
   nama: string;
   satuan: string;
   stok: number;
+  hargaRataRata: number;
 }
 
 interface OpsiOutlet {
@@ -39,7 +40,6 @@ interface BahanBakuBaris {
   bahanBakuId: string | null;
   qtyPakai: string;
   qtyWaste: string;
-  hargaSatuan: string;
 }
 
 let counter = 0;
@@ -68,7 +68,7 @@ export function ProsesFormClient() {
   const [catatan, setCatatan] = React.useState("");
 
   const [bahanBaris, setBahanBaris] = React.useState<BahanBakuBaris[]>([
-    { key: keyBaru(), bahanBakuId: null, qtyPakai: "", qtyWaste: "", hargaSatuan: "" },
+    { key: keyBaru(), bahanBakuId: null, qtyPakai: "", qtyWaste: "" },
   ]);
 
   React.useEffect(() => {
@@ -100,12 +100,12 @@ export function ProsesFormClient() {
   const bahanBakuOptions: SelectOption[] = (opsi?.bahanBaku ?? []).map((b) => ({
     value: b.id,
     label: b.nama,
-    hint: `Stok: ${formatAngka(b.stok, 3)} ${b.satuan}`,
+    hint: `Stok: ${formatAngka(b.stok, 3)} ${b.satuan} · Avg: ${formatRupiah(b.hargaRataRata)}`,
   }));
 
   // -- baris bahan baku --
   function tambahBahanBaris() {
-    setBahanBaris((prev) => [...prev, { key: keyBaru(), bahanBakuId: null, qtyPakai: "", qtyWaste: "", hargaSatuan: "" }]);
+    setBahanBaris((prev) => [...prev, { key: keyBaru(), bahanBakuId: null, qtyPakai: "", qtyWaste: "" }]);
   }
   function hapusBahanBaris(key: string) {
     setBahanBaris((prev) => prev.filter((b) => b.key !== key));
@@ -114,12 +114,16 @@ export function ProsesFormClient() {
     setBahanBaris((prev) => prev.map((b) => (b.key === key ? { ...b, ...patch } : b)));
   }
 
-  // -- hitung total biaya preview --
+  // -- hitung total biaya preview (pakai hargaRataRata dari map) --
   const totalBiaya = React.useMemo(() => {
     return bahanBaris
       .filter((b) => b.bahanBakuId && num(b.qtyPakai) > 0)
-      .reduce((sum, b) => sum + (num(b.qtyPakai) + num(b.qtyWaste)) * num(b.hargaSatuan), 0);
-  }, [bahanBaris]);
+      .reduce((sum, b) => {
+        const bb = bahanBakuMap.get(b.bahanBakuId!);
+        const harga = bb?.hargaRataRata ?? 0;
+        return sum + (num(b.qtyPakai) + num(b.qtyWaste)) * harga;
+      }, 0);
+  }, [bahanBaris, bahanBakuMap]);
 
   // -- validasi stok inline --
   const peringatanStok = React.useMemo(() => {
@@ -156,10 +160,6 @@ export function ProsesFormClient() {
         toast.error("Qty pakai bahan baku harus lebih dari 0");
         return;
       }
-      if (!(num(b.hargaSatuan) >= 0) || b.hargaSatuan === "") {
-        toast.error("Harga satuan bahan baku wajib diisi");
-        return;
-      }
     }
     if (peringatanStok.length > 0) {
       toast.error(peringatanStok[0]);
@@ -179,7 +179,7 @@ export function ProsesFormClient() {
             bahanBakuId: b.bahanBakuId,
             qtyPakai: num(b.qtyPakai),
             qtyWaste: num(b.qtyWaste),
-            hargaSatuanSaatItu: num(b.hargaSatuan),
+            // hargaSatuanSaatItu tidak dikirim — backend ambil dari hargaRataRata DB
           })),
         }),
       });
@@ -256,62 +256,66 @@ export function ProsesFormClient() {
             {bahanBaris.length === 0 && (
               <p className="text-sm text-gray-500 dark:text-gray-500">Belum ada baris bahan baku.</p>
             )}
-            {bahanBaris.map((b, idx) => (
-              <div
-                key={b.key}
-                className="grid grid-cols-1 gap-2 rounded-lg border border-gray-200 p-3 dark:border-zinc-700 sm:grid-cols-[2fr_1fr_1fr_1fr_auto] sm:items-end"
-              >
-                <SearchableSelect
-                  label={idx === 0 ? "Bahan Baku" : undefined}
-                  placeholder="Pilih bahan baku"
-                  options={bahanBakuOptions}
-                  value={b.bahanBakuId}
-                  onChange={(v) => updateBahanBaris(b.key, { bahanBakuId: v })}
-                />
-                <Input
-                  label={idx === 0 ? "Qty Pakai" : undefined}
-                  type="number"
-                  min={0}
-                  step="any"
-                  inputMode="decimal"
-                  value={b.qtyPakai}
-                  onChange={(e) => updateBahanBaris(b.key, { qtyPakai: e.target.value })}
-                  placeholder="0"
-                />
-                <Input
-                  label={idx === 0 ? "Waste (opsional)" : undefined}
-                  type="number"
-                  min={0}
-                  step="any"
-                  inputMode="decimal"
-                  value={b.qtyWaste}
-                  onChange={(e) => updateBahanBaris(b.key, { qtyWaste: e.target.value })}
-                  placeholder="0"
-                />
-                <Input
-                  label={idx === 0 ? "Harga Satuan" : undefined}
-                  type="number"
-                  min={0}
-                  step="any"
-                  inputMode="decimal"
-                  value={b.hargaSatuan}
-                  onChange={(e) => updateBahanBaris(b.key, { hargaSatuan: e.target.value })}
-                  placeholder="Rp"
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="lg"
-                  onClick={() => hapusBahanBaris(b.key)}
-                  aria-label="Hapus baris"
+            {bahanBaris.map((b, idx) => {
+              const bb = b.bahanBakuId ? bahanBakuMap.get(b.bahanBakuId) : null;
+              return (
+                <div
+                  key={b.key}
+                  className="grid grid-cols-1 gap-2 rounded-lg border border-gray-200 p-3 dark:border-zinc-700 sm:grid-cols-[2fr_1fr_1fr_1fr_auto] sm:items-end"
                 >
-                  <Trash2 className="h-4 w-4 text-red-600 dark:text-red-400" />
-                </Button>
-              </div>
-            ))}
+                  <SearchableSelect
+                    label={idx === 0 ? "Bahan Baku" : undefined}
+                    placeholder="Pilih bahan baku"
+                    options={bahanBakuOptions}
+                    value={b.bahanBakuId}
+                    onChange={(v) => updateBahanBaris(b.key, { bahanBakuId: v })}
+                  />
+                  <Input
+                    label={idx === 0 ? "Qty Pakai" : undefined}
+                    type="number"
+                    min={0}
+                    step="any"
+                    inputMode="decimal"
+                    value={b.qtyPakai}
+                    onChange={(e) => updateBahanBaris(b.key, { qtyPakai: e.target.value })}
+                    placeholder="0"
+                  />
+                  <Input
+                    label={idx === 0 ? "Waste (opsional)" : undefined}
+                    type="number"
+                    min={0}
+                    step="any"
+                    inputMode="decimal"
+                    value={b.qtyWaste}
+                    onChange={(e) => updateBahanBaris(b.key, { qtyWaste: e.target.value })}
+                    placeholder="0"
+                  />
+                  {/* Harga average — read only */}
+                  <div className={idx === 0 ? "pt-0.5" : ""}>
+                    {idx === 0 && <p className="mb-1.5 text-xs font-medium text-gray-500 dark:text-gray-400">Harga Avg</p>}
+                    {bb ? (
+                      <p className="h-11 flex items-center text-sm font-medium text-gray-900 dark:text-gray-50">
+                        {formatRupiah(bb.hargaRataRata)}
+                      </p>
+                    ) : (
+                      <p className="h-11 flex items-center text-sm text-gray-400">—</p>
+                    )}
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="lg"
+                    onClick={() => hapusBahanBaris(b.key)}
+                    aria-label="Hapus baris"
+                  >
+                    <Trash2 className="h-4 w-4 text-red-600 dark:text-red-400" />
+                  </Button>
+                </div>
+              );
+            })}
           </div>
           <p className="mt-2 text-xs text-gray-500 dark:text-gray-500">
-            Harga satuan diinput manual per proses (tidak ada harga rata-rata berjalan pada Bahan Baku).
+            Harga menggunakan rata-rata berjalan dari seluruh pembelian bahan baku (Weighted Average Cost).
           </p>
         </Card>
 

@@ -388,9 +388,12 @@ model BahanBaku {
   id           String   @id @default(cuid())
   tenantId     String?
   nama         String
-  satuan       String // gr, kg, ml, L, pcs, dst
+  satuan       String // kg, gr, L, ml, pcs, dst — dari dropdown SATUAN_OPTIONS
   stok         Decimal  @default(0) @db.Decimal(15, 3)
   stokMinimum  Decimal  @default(0) @db.Decimal(15, 3)
+  // Harga satuan per 1 satuan stok. Diisi manual untuk stok awal;
+  // setelah ada pembelian, di-update otomatis jadi rata-rata tertimbang.
+  hargaRataRata Decimal @default(0) @db.Decimal(15, 2)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
