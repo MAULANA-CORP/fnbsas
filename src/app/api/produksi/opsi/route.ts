@@ -25,7 +25,7 @@ export const GET = withOwnerProduksi(async () => {
       }),
       // Proses yang sudah SELESAI, bisa dipilih untuk Output
       prisma.proses.findMany({
-        where: { status: "SELESAI" },
+        where: { status: "SELESAI", outputs: { none: {} } },
         orderBy: { createdAt: "desc" },
         take: 200,
         select: {
