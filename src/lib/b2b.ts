@@ -196,14 +196,15 @@ export async function buatOrderB2B(user: AuthUser, input: BuatOrderInput) {
         }, user.tenantId),
       });
     }
-    // 6) Auto lunas untuk Cash & Transfer_QRIS — terbitkan invoice + piutang + status LUNAS
+    // 6) Auto lunas untuk Cash & Transfer_QRIS — invoice + piutang + baris Pembayaran
+    //    (Arus Kas & Neraca menghitung kas dari tabel Pembayaran, bukan dari status LUNAS).
     const metodeBayar = input.metodeBayar ?? "TRANSFER_QRIS";
     if (metodeBayar === "CASH" || metodeBayar === "TRANSFER_QRIS") {
       const nomorInvoice = buatNomorDokumen("INV");
       await tx.invoice.create({
         data: tenantCreate({ orderB2BId: created.id, nomorInvoice }, user.tenantId),
       });
-      await tx.piutang.create({
+      const piutang = await tx.piutang.create({
         data: tenantCreate({
           orderB2BId: created.id,
           pihakNama: agen.nama,
@@ -211,6 +212,15 @@ export async function buatOrderB2B(user: AuthUser, input: BuatOrderInput) {
           totalTerbayar: subtotalOrder,
           jatuhTempo: new Date(),
           status: "LUNAS",
+        }, user.tenantId),
+      });
+      await tx.pembayaran.create({
+        data: tenantCreate({
+          tipe: "PIUTANG",
+          piutangId: piutang.id,
+          jumlah: subtotalOrder,
+          catatan: input.catatan?.trim() || "Pembayaran B2B tunai",
+          userId: user.id,
         }, user.tenantId),
       });
       await tx.orderB2B.update({

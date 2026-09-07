@@ -4,13 +4,12 @@
 
 import { getPrisma } from "@/lib/prisma";
 import { hitungSaldoKasKumulatif } from "@/lib/finance";
-import { awalHariIni, akhirHariIni, awalBulanIni } from "@/lib/period";
+import { awalHariIni, akhirHariIni, awalBulanIni, geserHariWIB, rentangTanggalWIB } from "@/lib/period";
+import { tanggalWIB } from "@/lib/utils";
 import type { AuthUser } from "@/lib/api-helpers";
 
 function tujuhHariLalu(): Date {
-  const d = awalHariIni();
-  d.setDate(d.getDate() - 6);
-  return d;
+  return geserHariWIB(awalHariIni(), -6);
 }
 
 export interface OmzetRingkas {
@@ -60,13 +59,11 @@ async function grafikOmzet7Hari(outletId?: string): Promise<GrafikHarian[]> {
     prisma.orderB2B.findMany({ where: { createdAt: { gte: start }, status: { not: "BATAL" }, ...oFilter }, select: { createdAt: true, total: true } }),
   ]);
   const perHari = new Map<string, number>();
-  for (let i = 0; i < 7; i++) {
-    const d = new Date(start);
-    d.setDate(d.getDate() + i);
-    perHari.set(d.toISOString().slice(0, 10), 0);
+  for (const key of rentangTanggalWIB(start, awalHariIni())) {
+    perHari.set(key, 0);
   }
   for (const o of [...pos, ...b2b]) {
-    const key = o.createdAt.toISOString().slice(0, 10);
+    const key = tanggalWIB(o.createdAt);
     if (perHari.has(key)) perHari.set(key, (perHari.get(key) ?? 0) + Number(o.total));
   }
   return [...perHari.entries()].map(([tanggal, omzet]) => ({ tanggal, omzet }));

@@ -26,11 +26,13 @@ export function Dialog({
         <RadixDialog.Overlay className="fixed inset-0 z-50 bg-black/50 data-[state=open]:animate-in data-[state=open]:fade-in" />
         <RadixDialog.Content
           className={cn(
-            "fixed left-1/2 top-1/2 z-50 max-h-[90vh] w-[calc(100vw-2rem)] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-xl border p-5 shadow-lg",
+            "fixed z-50 overflow-y-auto border p-5 shadow-lg",
             "border-gray-200 bg-white dark:border-zinc-700 dark:bg-zinc-800",
-            "sm:w-full sm:max-w-lg",
+            "inset-x-0 bottom-0 max-h-[92dvh] w-full rounded-t-2xl",
+            "sm:inset-auto sm:left-1/2 sm:top-1/2 sm:bottom-auto sm:max-h-[90vh] sm:w-full sm:max-w-lg sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-xl",
             className
           )}
+          style={{ paddingBottom: "max(1.25rem, env(safe-area-inset-bottom))" }}
         >
           <div className="mb-4 flex items-start justify-between gap-3">
             <div>
@@ -43,7 +45,7 @@ export function Dialog({
                 </RadixDialog.Description>
               )}
             </div>
-            <RadixDialog.Close className="rounded-lg p-1 text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-zinc-700">
+            <RadixDialog.Close className="flex h-11 w-11 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-zinc-700">
               <X className="h-4 w-4" />
             </RadixDialog.Close>
           </div>
@@ -76,11 +78,11 @@ export function ConfirmDialog({
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange} title={title} description={description}>
-      <div className="mt-2 flex justify-end gap-2">
+      <div className="mt-2 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
         <button
           type="button"
           onClick={() => onOpenChange(false)}
-          className="h-10 rounded-lg border border-gray-300 px-4 text-sm font-medium text-gray-900 hover:bg-gray-50 dark:border-zinc-700 dark:text-gray-50 dark:hover:bg-zinc-700"
+          className="min-h-11 rounded-lg border border-gray-300 px-4 text-sm font-medium text-gray-900 hover:bg-gray-50 dark:border-zinc-700 dark:text-gray-50 dark:hover:bg-zinc-700"
         >
           Batal
         </button>
@@ -89,7 +91,7 @@ export function ConfirmDialog({
           disabled={loading}
           onClick={onConfirm}
           className={cn(
-            "h-10 rounded-lg px-4 text-sm font-medium text-white disabled:opacity-60",
+            "min-h-11 rounded-lg px-4 text-sm font-medium text-white disabled:opacity-60",
             danger ? "bg-red-600 hover:bg-red-700 dark:bg-red-500" : "bg-blue-600 hover:bg-blue-700 dark:bg-blue-500"
           )}
         >

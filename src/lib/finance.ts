@@ -22,24 +22,18 @@
 //      (+) Setiap `Pembayaran` tipe PIUTANG → kas masuk sebesar jumlah, tanggal = tanggal
 //          pembayaran.
 //      (+) `Modal` tipe MODAL_AWAL / PENAMBAHAN → kas masuk.
-//      (−) `Pembelian` (bahan baku/kemasan ke Supplier) → kas keluar sebesar total,
-//          diasumsikan dibayar tunai saat pembelian dicatat (PRD tidak memisahkan
-//          pembelian tunai vs kredit-ke-utang secara kas; Pembelian yang menghasilkan
-//          Utang tetap dianggap kas keluar saat itu SESUAI RUMUS PRD §7.3, sementara
-//          pelunasan Utang berikutnya via Pembayaran tipe UTANG below dihindarkan dari
-//          dobel-hitung karena keduanya memang dua event kas yang berbeda secara wajar:
-//          uang ke Supplier saat beli, dan uang ke pemberi pinjaman/investor saat cicil
-//          Utang PINJAMAN/INVESTOR. Utang bersumber PEMBELIAN tidak dicicil lewat jalur
-//          ini di v1 — kalau suatu saat Utang PEMBELIAN dicicil via Pembayaran tipe
-//          UTANG juga, ada risiko dobel-hitung; diterima sebagai keterbatasan v1 dan
-//          didokumentasikan, bukan dihitung ulang secara silang.)
 //      (−) `Pembayaran` tipe UTANG → kas keluar sebesar jumlah, tanggal = tanggal bayar.
+//          Mencakup pembelian tunai, DP, cicilan, dan pelunasan pinjaman/investor.
+//          Total `Pembelian` TIDAK dihitung sebagai kas keluar (opsi A): barang kredit
+//          belum menguras kas sampai ada pembayaran.
 //      (−) `Pengeluaran` (beban operasional) → kas keluar sebesar jumlah, tanggal = tanggal.
 //      (−) `Modal` tipe PRIVE → kas keluar.
 //
 // Kalau asumsi ini perlu diubah di kemudian hari, cukup ubah di satu tempat ini.
 
 import { getPrisma } from "@/lib/prisma";
+import { tanggalWIB } from "@/lib/utils";
+import { rentangTanggalWIB } from "@/lib/period";
 
 /** Tanggal paling awal yang dianggap "sejak awal berdirinya data" untuk saldo kumulatif. */
 const EPOCH = new Date(0);
@@ -419,10 +413,9 @@ export async function hitungArusKas(filter: PeriodeFilter): Promise<ArusKasResul
   const prisma = getPrisma();
   const { start, end, outletId } = filter;
 
-  // Arus kas masuk sekarang terpusat dari tabel Pembayaran (PIUTANG).
-  // orderPOSTunai dan orderB2BTunai tidak diquery lagi secara terpisah, karena
-  // transaksi TUNAI (CASH/TRANSFER_QRIS) dan DP akan secara seragam menulis baris Pembayaran.
-  const [pembayaranPiutang, modalList, pembelianList, cicilanUtang, pengeluaranList] =
+  // Kas masuk & kas keluar pembelian/utang terpusat dari tabel Pembayaran.
+  // Pembelian kredit tidak menguras kas sampai ada pembayaran (tunai / DP / cicilan).
+  const [pembayaranPiutang, modalList, cicilanUtang, pengeluaranList] =
     await Promise.all([
       prisma.pembayaran.findMany({
         where: {
@@ -436,19 +429,13 @@ export async function hitungArusKas(filter: PeriodeFilter): Promise<ArusKasResul
         where: { tanggal: { gte: start, lte: end } },
         select: { jumlah: true, tipe: true },
       }),
-      prisma.pembelian.findMany({
-        where: {
-          createdAt: { gte: start, lte: end },
-          ...(outletId ? { OR: [{ outletId }, { outletId: null }] } : {}),
-        },
-        select: { total: true },
-      }),
       prisma.pembayaran.findMany({
         where: {
           tipe: "UTANG",
           tanggal: { gte: start, lte: end },
-          // Outlet filter omitted for Utang for now since Utang applies globally or via pembelian.
-          // To be perfectly aligned, we should do utang: { pembelian: { outletId } } if outletId is provided.
+          ...(outletId
+            ? { utang: { OR: [{ pembelian: { outletId } }, { pembelianId: null }] } }
+            : {}),
         },
         select: { jumlah: true },
       }),
@@ -469,7 +456,7 @@ export async function hitungArusKas(filter: PeriodeFilter): Promise<ArusKasResul
     .reduce((s, m) => s + Number(m.jumlah), 0);
   const prive = modalList.filter((m) => m.tipe === "PRIVE").reduce((s, m) => s + Number(m.jumlah), 0);
 
-  const pembelianTotal = pembelianList.reduce((s, p) => s + Number(p.total), 0);
+  const pembelianTotal = 0; // opsi A: kas keluar pembelian hanya via Pembayaran UTANG
   const cicilanUtangTotal = cicilanUtang.reduce((s, p) => s + Number(p.jumlah), 0);
   const pengeluaranTotal = pengeluaranList.reduce((s, p) => s + Number(p.jumlah), 0);
 
@@ -514,7 +501,7 @@ export async function hitungSeriHarianArusKas(filter: PeriodeFilter): Promise<Ar
   const maxEnd = new Date(start.getTime() + 92 * 24 * 60 * 60 * 1000);
   const actualEnd = end > maxEnd ? maxEnd : end;
 
-  const [pembayaranPiutang, modalList, pembelianList, cicilanUtang, pengeluaranList] = await Promise.all([
+  const [pembayaranPiutang, modalList, cicilanUtang, pengeluaranList] = await Promise.all([
     prisma.pembayaran.findMany({
       where: {
         tipe: "PIUTANG",
@@ -527,17 +514,13 @@ export async function hitungSeriHarianArusKas(filter: PeriodeFilter): Promise<Ar
       where: { tanggal: { gte: start, lte: actualEnd } },
       select: { tanggal: true, jumlah: true, tipe: true },
     }),
-    prisma.pembelian.findMany({
-      where: {
-        createdAt: { gte: start, lte: actualEnd },
-        ...(outletId ? { OR: [{ outletId }, { outletId: null }] } : {}),
-      },
-      select: { createdAt: true, total: true },
-    }),
     prisma.pembayaran.findMany({
       where: {
         tipe: "UTANG",
         tanggal: { gte: start, lte: actualEnd },
+        ...(outletId
+          ? { utang: { OR: [{ pembelian: { outletId } }, { pembelianId: null }] } }
+          : {}),
       },
       select: { tanggal: true, jumlah: true },
     }),
@@ -553,7 +536,7 @@ export async function hitungSeriHarianArusKas(filter: PeriodeFilter): Promise<Ar
   const mapHarian = new Map<string, { masuk: number; keluar: number }>();
 
   const add = (tgl: Date, type: "masuk" | "keluar", val: number) => {
-    const key = tgl.toISOString().slice(0, 10);
+    const key = tanggalWIB(tgl);
     const curr = mapHarian.get(key) ?? { masuk: 0, keluar: 0 };
     curr[type] += val;
     mapHarian.set(key, curr);
@@ -564,27 +547,18 @@ export async function hitungSeriHarianArusKas(filter: PeriodeFilter): Promise<Ar
     if (m.tipe === "MODAL_AWAL" || m.tipe === "PENAMBAHAN") add(m.tanggal, "masuk", Number(m.jumlah));
     else if (m.tipe === "PRIVE") add(m.tanggal, "keluar", Number(m.jumlah));
   }
-  for (const p of pembelianList) add(p.createdAt, "keluar", Number(p.total));
   for (const p of cicilanUtang) add(p.tanggal, "keluar", Number(p.jumlah));
   for (const p of pengeluaranList) add(p.tanggal, "keluar", Number(p.jumlah));
 
-  const hasil: Array<{ tanggal: string; masuk: number; keluar: number; bersih: number }> = [];
-  const cursor = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate()));
-  const akhir = new Date(Date.UTC(actualEnd.getUTCFullYear(), actualEnd.getUTCMonth(), actualEnd.getUTCDate()));
-  
-  while (cursor.getTime() <= akhir.getTime()) {
-    const key = cursor.toISOString().slice(0, 10);
-    const val = mapHarian.get(key) ?? { masuk: 0, keluar: 0 };
-    hasil.push({
-      tanggal: key,
+  return rentangTanggalWIB(start, actualEnd).map((tanggal) => {
+    const val = mapHarian.get(tanggal) ?? { masuk: 0, keluar: 0 };
+    return {
+      tanggal,
       masuk: val.masuk,
       keluar: val.keluar,
       bersih: val.masuk - val.keluar,
-    });
-    cursor.setUTCDate(cursor.getUTCDate() + 1);
-  }
-
-  return hasil;
+    };
+  });
 }
 
 // ---------------------------------------------------------------------------

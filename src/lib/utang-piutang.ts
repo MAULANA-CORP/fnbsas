@@ -154,7 +154,9 @@ export interface BuatPembelianInput {
   tanggal?: string; // ISO date
   keterangan?: string | null;
   items: ItemPembelianInput[];
-  jatuhTempo: string; // ISO date
+  jatuhTempo?: string; // wajib kalau belum lunas (kredit / DP)
+  /** Uang yang dibayar sekarang: 0 = kredit penuh, sebagian = DP, ≥ total = tunai lunas. */
+  bayarSekarang?: number;
 }
 
 function validasiItemPembelian(items: ItemPembelianInput[]) {
@@ -178,19 +180,20 @@ function validasiItemPembelian(items: ItemPembelianInput[]) {
  * Catat Pembelian baru dari Supplier dalam satu transaksi:
  * - Buat Pembelian + PembelianItem[].
  * - Tambah stok BahanBaku/Kemasan sesuai item + catat StokMovement (IN, sumber PEMBELIAN).
- * - Buat Utang terkait (sumber PEMBELIAN, pihakNama = nama supplier, totalUtang = total pembelian).
+ * - Buat Utang terkait. Kas keluar HANYA dari baris Pembayaran (tunai / DP / cicilan),
+ *   bukan dari total pembelian — supaya kredit tidak menguras kas sebelum dibayar.
  */
 export async function buatPembelian(user: AuthUser, input: BuatPembelianInput) {
   const { assertBisaTransaksi } = await import("@/lib/subscription");
   await assertBisaTransaksi(user);
   validasiItemPembelian(input.items);
 
-  const jatuhTempo = new Date(input.jatuhTempo);
-  if (Number.isNaN(jatuhTempo.getTime())) {
-    throw new UtangPiutangError("Tanggal jatuh tempo tidak valid");
-  }
   const tanggal = input.tanggal ? new Date(input.tanggal) : new Date();
   if (Number.isNaN(tanggal.getTime())) throw new UtangPiutangError("Tanggal pembelian tidak valid");
+  const bayarSekarang = Math.max(0, Number(input.bayarSekarang ?? 0));
+  if (!Number.isFinite(bayarSekarang)) {
+    throw new UtangPiutangError("Jumlah bayar sekarang tidak valid");
+  }
 
   const prisma = getPrisma();
   const supplier = await prisma.supplier.findUnique({ where: { id: input.supplierId } });
@@ -202,6 +205,19 @@ export async function buatPembelian(user: AuthUser, input: BuatPembelianInput) {
   }
 
   const total = input.items.reduce((sum, it) => sum + Number(it.qty) * Number(it.hargaSatuan), 0);
+  if (bayarSekarang > total + EPSILON) {
+    throw new UtangPiutangError("Jumlah bayar sekarang tidak boleh melebihi total pembelian");
+  }
+  const statusUtang = hitungStatusBayar(total, bayarSekarang);
+  if (statusUtang !== "LUNAS") {
+    if (!input.jatuhTempo) {
+      throw new UtangPiutangError("Tanggal jatuh tempo wajib diisi untuk pembelian kredit / DP");
+    }
+  }
+  const jatuhTempo = input.jatuhTempo ? new Date(input.jatuhTempo) : tanggal;
+  if (Number.isNaN(jatuhTempo.getTime())) {
+    throw new UtangPiutangError("Tanggal jatuh tempo tidak valid");
+  }
   const nomor = buatNomorDokumen("PB");
 
   const { pembelian, utang } = await prisma.$transaction(async (tx) => {
@@ -284,10 +300,27 @@ export async function buatPembelian(user: AuthUser, input: BuatPembelianInput) {
         pembelianId: pembelianBaru.id,
         pihakNama: supplier.nama,
         totalUtang: total,
+        totalTerbayar: bayarSekarang,
         jatuhTempo,
-        status: "BELUM_BAYAR",
+        status: statusUtang,
       }, user.tenantId),
     });
+
+    if (bayarSekarang > 0) {
+      await tx.pembayaran.create({
+        data: tenantCreate({
+          tipe: "UTANG",
+          utangId: utangBaru.id,
+          jumlah: bayarSekarang,
+          tanggal,
+          catatan:
+            statusUtang === "LUNAS"
+              ? "Pembelian tunai"
+              : `DP pembelian ${nomor}`,
+          userId: user.id,
+        }, user.tenantId),
+      });
+    }
 
     return { pembelian: pembelianBaru, utang: utangBaru };
   });

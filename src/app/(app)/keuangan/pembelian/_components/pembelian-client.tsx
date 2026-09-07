@@ -33,7 +33,7 @@ export function PembelianClient({
 
       <PageHeader
         title="Catat Pembelian / Utang Baru"
-        description="Pembelian dari supplier otomatis menambah stok dan mencatat utang. Pinjaman/Investor dicatat langsung tanpa item."
+        description="Tunai langsung kas keluar. Kredit bisa DP atau cicilan — kas hanya keluar saat dibayar. Pinjaman/Investor tanpa item stok."
       />
 
       <Card>

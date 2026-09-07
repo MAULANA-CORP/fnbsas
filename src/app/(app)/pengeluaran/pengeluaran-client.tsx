@@ -10,6 +10,7 @@ import { Input, Textarea } from "@/components/ui/input";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Dialog, ConfirmDialog } from "@/components/ui/dialog";
 import { EmptyState, LoadingSkeleton } from "@/components/ui/empty-state";
+import { DataCard } from "@/components/ui/data-card";
 import { formatRupiah, formatTanggal } from "@/lib/utils";
 import { toastApiError } from "@/lib/api-client";
 import { exportRowsToExcel } from "@/lib/export-excel";
@@ -261,52 +262,36 @@ export function PengeluaranClient() {
             }
           />
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[640px] text-sm">
-              <thead>
-                <tr className="border-b border-gray-200 text-left text-xs uppercase text-gray-500 dark:border-zinc-700 dark:text-gray-400">
-                  <th className="py-2 pr-3">Tanggal</th>
-                  <th className="py-2 pr-3">Kategori</th>
-                  <th className="py-2 pr-3 text-right">Jumlah</th>
-                  <th className="py-2 pr-3">Outlet</th>
-                  <th className="py-2 pr-3">Keterangan</th>
-                  <th className="py-2 pr-3">Dicatat oleh</th>
-                  <th className="py-2 pr-3" />
-                </tr>
-              </thead>
-              <tbody>
-                {list.map((p) => (
-                  <tr key={p.id} className="border-b border-gray-100 last:border-0 dark:border-zinc-800">
-                    <td className="py-2 pr-3 whitespace-nowrap">{formatTanggal(p.tanggal)}</td>
-                    <td className="py-2 pr-3">{p.kategori}</td>
-                    <td className="py-2 pr-3 text-right font-medium whitespace-nowrap">{formatRupiah(p.jumlah)}</td>
-                    <td className="py-2 pr-3">{p.namaOutlet ?? "-"}</td>
-                    <td className="max-w-[220px] truncate py-2 pr-3">{p.keterangan ?? "-"}</td>
-                    <td className="py-2 pr-3 whitespace-nowrap">{p.namaUser}</td>
-                    <td className="py-2 pr-3">
-                      <div className="flex justify-end gap-1">
-                        <button
-                          type="button"
-                          onClick={() => openEdit(p)}
-                          aria-label="Edit"
-                          className="flex h-9 w-9 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-zinc-700"
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setDeleteTarget(p)}
-                          aria-label="Hapus"
-                          className="flex h-9 w-9 items-center justify-center rounded-lg text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="space-y-2">
+            {list.map((p) => (
+              <DataCard
+                key={p.id}
+                title={p.kategori}
+                subtitle={`${p.namaOutlet ?? "Tanpa outlet"}${p.keterangan ? ` · ${p.keterangan}` : ""}`}
+                meta={`${formatTanggal(p.tanggal)} · oleh ${p.namaUser}`}
+                amount={formatRupiah(p.jumlah)}
+                trailing={
+                  <div className="flex gap-1">
+                    <button
+                      type="button"
+                      onClick={() => openEdit(p)}
+                      aria-label="Edit"
+                      className="flex h-11 w-11 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-zinc-700"
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDeleteTarget(p)}
+                      aria-label="Hapus"
+                      className="flex h-11 w-11 items-center justify-center rounded-lg text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                }
+              />
+            ))}
           </div>
         )}
       </Card>

@@ -209,7 +209,7 @@ export function OrderFormClient({
   }
 
   return (
-    <div>
+    <div className="pb-28 lg:pb-8">
       <PageHeader title="Buat Order B2B" description="Order untuk Agen/Distributor. Stok akan tervalidasi & langsung berkurang saat disimpan." />
 
       <form onSubmit={submit} className="space-y-4">
@@ -362,10 +362,16 @@ export function OrderFormClient({
           />
         </Card>
 
-        <div className="flex justify-end gap-2">
-          <Button type="submit" loading={submitting} disabled={adaStokKurang}>
-            Simpan Order
-          </Button>
+        <div className="sticky-cta border-t border-gray-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-900 lg:mt-4 lg:rounded-xl lg:border">
+          <div className="mx-auto flex max-w-3xl items-center justify-between gap-3">
+            <div>
+              <p className="text-sm text-gray-600 dark:text-gray-400">Total</p>
+              <p className="text-xl font-semibold text-gray-900 dark:text-gray-50">{formatRupiah(total)}</p>
+            </div>
+            <Button type="submit" size="lg" loading={submitting} disabled={adaStokKurang}>
+              Simpan Order
+            </Button>
+          </div>
         </div>
       </form>
 

@@ -125,7 +125,7 @@ const steps: Step[] = [
       <>
         <p>
           Buka menu <strong>Utang &amp; Piutang</strong> — ada 2 tab terpisah. Piutang muncul otomatis dari transaksi
-          POS/B2B yang Kredit. Utang dicatat dari pembelian ke Supplier, pinjaman, atau investor.
+          POS/B2B yang Kredit. Utang dicatat dari pembelian ke Supplier (bisa tunai, DP, atau cicilan), pinjaman, atau investor. Kas hanya keluar saat ada pembayaran.
         </p>
         <p>
           Untuk mencicil, pilih item yang mau dibayar, masukkan jumlah pembayaran (boleh sebagian/parsial). Riwayat

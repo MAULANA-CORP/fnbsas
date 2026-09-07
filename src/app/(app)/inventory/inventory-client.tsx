@@ -12,7 +12,7 @@ import { Input, Textarea } from "@/components/ui/input";
 import { Dialog, ConfirmDialog } from "@/components/ui/dialog";
 import { SearchableSelect, type SelectOption } from "@/components/ui/searchable-select";
 import { EmptyState, LoadingSkeleton } from "@/components/ui/empty-state";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { DataCard } from "@/components/ui/data-card";
 import { formatAngka, formatRupiah, formatTanggalJam } from "@/lib/utils";
 
 // ---------------------------------------------------------------------------
@@ -312,15 +312,15 @@ export function InventoryClient({ role }: { role: Role }) {
                 className="pl-9"
               />
             </div>
-            <Select value={stokFilter} onValueChange={setStokFilter}>
-              <SelectTrigger className="w-full sm:w-[200px] bg-white dark:bg-zinc-900">
-                <SelectValue placeholder="Semua Stok" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="ALL">Semua Stok</SelectItem>
-                <SelectItem value="LOW">Stok Menipis Saja</SelectItem>
-              </SelectContent>
-            </Select>
+            <SearchableSelect
+              placeholder="Semua Stok"
+              options={[
+                { value: "ALL", label: "Semua Stok" },
+                { value: "LOW", label: "Stok Menipis Saja" },
+              ]}
+              value={stokFilter}
+              onChange={(v) => setStokFilter(v ?? "ALL")}
+            />
           </div>
 
           {loadingStok ? (
@@ -328,56 +328,45 @@ export function InventoryClient({ role }: { role: Role }) {
           ) : !stokData || stokData.length === 0 ? (
             <EmptyState title="Tidak ada data" description={`Belum ada data ${activeKategori.labelItem}.`} />
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[520px] text-left text-sm">
-                <thead>
-                  <tr className="border-b border-gray-200 text-gray-600 dark:border-zinc-700 dark:text-gray-400">
-                    <th className="py-2 pr-4 font-medium">Nama</th>
-                    <th className="py-2 pr-4 text-right font-medium">Stok</th>
-                    {activeKey === "bahan-baku" && (
-                      <th className="py-2 pr-4 text-right font-medium">Harga Satuan</th>
-                    )}
-                    <th className="py-2 pr-4 text-right font-medium">ROP (Stok Min.)</th>
-                    <th className="py-2 pr-4 font-medium">Status</th>
-                    {bisaAdjustment && <th className="py-2 pr-4 font-medium">Aksi</th>}
-                  </tr>
-                </thead>
-                <tbody>
-                  {stokData.map((i) => (
-                    <tr key={i.id} className="border-b border-gray-100 last:border-0 dark:border-zinc-800">
-                      <td className="py-3 pr-4 text-gray-900 dark:text-gray-50">{i.nama}</td>
-                      <td className="py-3 pr-4 text-right text-gray-700 dark:text-gray-300">
-                        {formatAngka(i.stok, 3)} {i.satuan}
-                      </td>
-                      {activeKey === "bahan-baku" && (
-                        <td className="py-3 pr-4 text-right text-gray-700 dark:text-gray-300">
-                          {formatRupiah(i.hargaRataRata ?? 0)}
-                          <span className="ml-1 text-xs text-gray-500 dark:text-gray-400">/{i.satuan}</span>
-                        </td>
-                      )}
-                      <td className="py-3 pr-4 text-right text-gray-700 dark:text-gray-300">
-                        {formatAngka(i.stokMinimum, 3)} {i.satuan}
-                      </td>
-                      <td className="py-3 pr-4">
-                        {i.lowStock ? (
-                          <Badge tone="red">
-                            <AlertTriangle className="mr-1 h-3 w-3" /> Stok Menipis
-                          </Badge>
-                        ) : (
-                          <Badge tone="green">Aman</Badge>
-                        )}
-                      </td>
-                      {bisaAdjustment && (
-                        <td className="py-3 pr-4">
-                          <Button size="sm" variant="secondary" onClick={() => bukaAdjustment(i)}>
-                            <SlidersHorizontal className="h-3.5 w-3.5" /> Adjustment
-                          </Button>
-                        </td>
-                      )}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="space-y-2">
+              {stokData.map((i) => (
+                <DataCard
+                  key={i.id}
+                  title={i.nama}
+                  tone={i.lowStock ? "danger" : "default"}
+                  badge={
+                    i.lowStock ? (
+                      <Badge tone="red">
+                        <AlertTriangle className="mr-1 h-3 w-3" /> Menipis
+                      </Badge>
+                    ) : (
+                      <Badge tone="green">Aman</Badge>
+                    )
+                  }
+                  subtitle={`Stok ${formatAngka(i.stok, 3)} ${i.satuan} · ROP ${formatAngka(i.stokMinimum, 3)} ${i.satuan}`}
+                  meta={
+                    activeKey === "bahan-baku"
+                      ? `Harga satuan ${formatRupiah(i.hargaRataRata ?? 0)} / ${i.satuan}`
+                      : undefined
+                  }
+                  trailing={
+                    bisaAdjustment ? (
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          bukaAdjustment(i);
+                        }}
+                      >
+                        <SlidersHorizontal className="h-3.5 w-3.5" />
+                        <span className="hidden sm:inline">Adjustment</span>
+                      </Button>
+                    ) : undefined
+                  }
+                />
+              ))}
             </div>
           )}
         </Card>
@@ -439,37 +428,20 @@ export function InventoryClient({ role }: { role: Role }) {
           ) : !movementData || movementData.length === 0 ? (
             <EmptyState title="Belum ada riwayat" description="Tidak ada pergerakan stok yang cocok dengan filter." />
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[640px] text-left text-sm">
-                <thead>
-                  <tr className="border-b border-gray-200 text-gray-600 dark:border-zinc-700 dark:text-gray-400">
-                    <th className="py-2 pr-4 font-medium">Tanggal</th>
-                    <th className="py-2 pr-4 font-medium">Item</th>
-                    <th className="py-2 pr-4 font-medium">Tipe</th>
-                    <th className="py-2 pr-4 text-right font-medium">Qty</th>
-                    <th className="py-2 pr-4 font-medium">Sumber</th>
-                    <th className="py-2 pr-4 font-medium">Keterangan</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {movementData.map((m) => (
-                    <tr key={m.id} className="border-b border-gray-100 last:border-0 dark:border-zinc-800">
-                      <td className="whitespace-nowrap py-3 pr-4 text-gray-700 dark:text-gray-300">
-                        {formatTanggalJam(m.tanggal)}
-                      </td>
-                      <td className="py-3 pr-4 text-gray-900 dark:text-gray-50">{m.item.nama}</td>
-                      <td className="py-3 pr-4">
-                        <Badge tone={m.tipe === "IN" ? "green" : "amber"}>{m.tipe === "IN" ? "Masuk" : "Keluar"}</Badge>
-                      </td>
-                      <td className="py-3 pr-4 text-right text-gray-700 dark:text-gray-300">
-                        {formatAngka(m.qty, 3)} {m.item.satuan}
-                      </td>
-                      <td className="py-3 pr-4 text-gray-700 dark:text-gray-300">{sumberLabel(m.sumber)}</td>
-                      <td className="py-3 pr-4 text-gray-700 dark:text-gray-300">{m.keterangan ?? "-"}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="space-y-2">
+              {movementData.map((m) => (
+                <DataCard
+                  key={m.id}
+                  title={m.item.nama}
+                  badge={
+                    <Badge tone={m.tipe === "IN" ? "green" : "amber"}>
+                      {m.tipe === "IN" ? "Masuk" : "Keluar"}
+                    </Badge>
+                  }
+                  subtitle={`${formatAngka(m.qty, 3)} ${m.item.satuan} · ${sumberLabel(m.sumber)}`}
+                  meta={`${formatTanggalJam(m.tanggal)}${m.keterangan ? ` · ${m.keterangan}` : ""}`}
+                />
+              ))}
             </div>
           )}
         </Card>

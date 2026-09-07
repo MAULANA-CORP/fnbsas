@@ -51,6 +51,7 @@ export const POST = withOwnerFinance(async (user, req) => {
       keterangan: body.keterangan ?? null,
       items: Array.isArray(body.items) ? body.items : [],
       jatuhTempo: body.jatuhTempo,
+      bayarSekarang: body.bayarSekarang,
     });
 
     return NextResponse.json({

@@ -17,7 +17,8 @@ import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatCard } from "@/components/ui/stat-card";
 import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
+import { Button } from "@/components/ui/button";
 import { EmptyState, LoadingSkeleton } from "@/components/ui/empty-state";
 import { formatRupiah, formatAngka, formatTanggal } from "@/lib/utils";
 import type { Role } from "@/lib/session";
@@ -168,12 +169,12 @@ export function DashboardClient({ role }: { role: Role }) {
             icon={Wallet}
           />
         </div>
-        <div className="mt-4 flex gap-3">
-          <Link href="/pos" className="text-sm font-medium text-blue-600 hover:underline dark:text-blue-400">
-            Buka POS
+        <div className="mt-4 grid grid-cols-2 gap-3">
+          <Link href="/pos/baru">
+            <Button className="w-full">Buat Order POS</Button>
           </Link>
-          <Link href="/b2b" className="text-sm font-medium text-blue-600 hover:underline dark:text-blue-400">
-            Buka B2B
+          <Link href="/b2b/baru">
+            <Button className="w-full" variant="secondary">Buat Order B2B</Button>
           </Link>
         </div>
       </div>
@@ -209,8 +210,8 @@ export function DashboardClient({ role }: { role: Role }) {
           <StokMenipisCard items={data.stokMenipis} />
         </div>
         <div className="mt-4">
-          <Link href="/produksi/proses/baru" className="text-sm font-medium text-blue-600 hover:underline dark:text-blue-400">
-            + Buat Batch Produksi Baru
+          <Link href="/produksi/proses/baru">
+            <Button className="w-full sm:w-auto">Buat Proses Baru</Button>
           </Link>
         </div>
       </div>
@@ -220,19 +221,19 @@ export function DashboardClient({ role }: { role: Role }) {
   // OWNER / FINANCE
   return (
     <div>
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+      <div className="mb-4 flex flex-col gap-3 sm:mb-6 sm:flex-row sm:items-start sm:justify-between">
         <PageHeader title="Dashboard" description="Ringkasan bisnis lintas semua modul." />
-        <Select value={selectedOutlet} onValueChange={setSelectedOutlet}>
-          <SelectTrigger className="w-[180px] bg-white dark:bg-zinc-900">
-            <SelectValue placeholder="Semua Outlet" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="ALL">Semua Outlet</SelectItem>
-            {outlets.map((o) => (
-              <SelectItem key={o.id} value={o.id}>{o.nama}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div className="w-full sm:max-w-xs">
+          <SearchableSelect
+            placeholder="Semua Outlet"
+            options={[
+              { value: "ALL", label: "Semua Outlet" },
+              ...outlets.map((o) => ({ value: o.id, label: o.nama })),
+            ]}
+            value={selectedOutlet}
+            onChange={(v) => setSelectedOutlet(v ?? "ALL")}
+          />
+        </div>
       </div>
 
       <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -263,12 +264,12 @@ export function DashboardClient({ role }: { role: Role }) {
         <CardHeader>
           <CardTitle>Omzet 7 Hari Terakhir</CardTitle>
         </CardHeader>
-        <div className="h-64 w-full">
+        <div className="h-56 w-full sm:h-64">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={data.grafik}>
+            <BarChart data={data.grafik} margin={{ left: 0, right: 8, top: 8, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200 dark:stroke-zinc-700" />
               <XAxis dataKey="tanggal" tick={{ fontSize: 11 }} tickFormatter={(v) => formatTanggal(v)} />
-              <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => formatRupiah(v)} width={90} />
+              <YAxis tick={{ fontSize: 10 }} tickFormatter={(v) => formatRupiah(v)} width={64} hide={false} />
               <Tooltip formatter={(value) => formatRupiah(Number(value))} labelFormatter={(v) => formatTanggal(String(v))} />
               <Bar dataKey="omzet" fill="#2563eb" radius={[4, 4, 0, 0]} />
             </BarChart>

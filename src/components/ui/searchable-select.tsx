@@ -95,7 +95,7 @@ export function SearchableSelect(props: SingleProps | MultiProps) {
             disabled={disabled}
             aria-label={label ?? placeholder}
             className={cn(
-              "flex w-full items-center justify-between gap-2 rounded-lg border px-3 py-2 text-left text-sm transition-colors",
+              "flex min-h-11 w-full items-center justify-between gap-2 rounded-lg border px-3 py-2 text-left text-base sm:text-sm transition-colors",
               "border-gray-300 bg-white text-gray-900",
               "dark:border-zinc-700 dark:bg-zinc-800 dark:text-gray-50",
               "hover:bg-gray-50 dark:hover:bg-zinc-700",
@@ -156,7 +156,7 @@ export function SearchableSelect(props: SingleProps | MultiProps) {
                   }}
                   placeholder={searchPlaceholder}
                   className={cn(
-                    "w-full bg-transparent py-2.5 text-sm outline-none",
+                    "w-full bg-transparent py-3 text-base outline-none sm:text-sm",
                     "text-gray-900 placeholder:text-gray-500",
                     "dark:text-gray-50 dark:placeholder:text-gray-400"
                   )}
@@ -180,7 +180,7 @@ export function SearchableSelect(props: SingleProps | MultiProps) {
                       disabled={o.disabled}
                       onSelect={() => handleSelect(o.value)}
                       className={cn(
-                        "flex cursor-pointer items-center gap-2 rounded px-2 py-2 text-sm",
+                        "flex min-h-11 cursor-pointer items-center gap-2 rounded-md px-2 py-2 text-sm",
                         "text-gray-900 dark:text-gray-50",
                         "data-[selected=true]:bg-gray-100 dark:data-[selected=true]:bg-zinc-700",
                         "data-[disabled=true]:cursor-not-allowed data-[disabled=true]:opacity-50"

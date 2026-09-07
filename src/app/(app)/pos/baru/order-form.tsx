@@ -273,7 +273,7 @@ export function OrderPOSForm() {
   }
 
   return (
-    <div className="pb-24">
+    <div className="pb-28 lg:pb-8">
       <PageHeader
         title="Buat Order Baru"
         description="Order penjualan POS (retail) untuk konsumen akhir."
@@ -373,6 +373,7 @@ export function OrderPOSForm() {
                     <Input
                       label="Qty"
                       type="number"
+                      inputMode="decimal"
                       min={0}
                       step="0.001"
                       value={it.qty}
@@ -381,6 +382,7 @@ export function OrderPOSForm() {
                     <Input
                       label="Harga Satuan"
                       type="number"
+                      inputMode="numeric"
                       min={0}
                       value={it.hargaSatuan}
                       onChange={(e) => updateItem(it.key, { hargaSatuan: Number(e.target.value) })}
@@ -455,8 +457,8 @@ export function OrderPOSForm() {
         </Card>
       </div>
 
-      {/* Ringkasan total — sticky di bawah supaya mudah dijangkau di HP */}
-      <div className="fixed inset-x-0 bottom-0 z-10 border-t border-gray-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-900 sm:sticky sm:mt-4 sm:rounded-xl sm:border">
+      {/* Ringkasan total — sticky di atas bottom nav di HP */}
+      <div className="sticky-cta border-t border-gray-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-900 lg:mt-4 lg:rounded-xl lg:border">
         <div className="mx-auto flex max-w-3xl items-center justify-between gap-3">
           <div>
             <p className="text-sm text-gray-600 dark:text-gray-400">Total</p>

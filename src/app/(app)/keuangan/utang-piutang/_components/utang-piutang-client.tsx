@@ -20,9 +20,15 @@ export function UtangPiutangClient({ role, outlets }: { role: Role; outlets: Out
       />
 
       <Tabs defaultValue="piutang">
-        <TabsList>
-          <TabsTrigger value="piutang">Piutang</TabsTrigger>
-          {bisaLihatUtang && <TabsTrigger value="utang">Utang</TabsTrigger>}
+        <TabsList className="w-full sm:w-auto">
+          <TabsTrigger value="piutang" className="flex-1 sm:flex-none">
+            Piutang
+          </TabsTrigger>
+          {bisaLihatUtang && (
+            <TabsTrigger value="utang" className="flex-1 sm:flex-none">
+              Utang
+            </TabsTrigger>
+          )}
         </TabsList>
 
         <TabsContent value="piutang">

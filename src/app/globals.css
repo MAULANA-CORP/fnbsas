@@ -30,9 +30,24 @@
 html { color-scheme: light; }
 html.dark { color-scheme: dark; }
 
+html {
+  scroll-behavior: smooth;
+  overscroll-behavior: contain;
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
+  font-family: var(--font-body), ui-sans-serif, system-ui, sans-serif;
+  -webkit-tap-highlight-color: transparent;
+}
+
+h1, h2, h3, .font-display {
+  font-family: var(--font-display), var(--font-body), ui-sans-serif, system-ui, sans-serif;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
 }
 
 * { scrollbar-color: rgb(203 213 225) transparent; }
@@ -48,6 +63,20 @@ body {
 
 @media print {
   .no-print { display: none !important; }
+}
+
+.sticky-cta {
+  position: fixed;
+  inset-inline: 0;
+  bottom: calc(4rem + env(safe-area-inset-bottom));
+  z-index: 20;
+}
+@media (min-width: 1024px) {
+  .sticky-cta {
+    position: sticky;
+    bottom: 0;
+    inset-inline: auto;
+  }
 }
 
 @keyframes receipt-print {

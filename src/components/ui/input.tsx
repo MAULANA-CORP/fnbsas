@@ -19,7 +19,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
         ref={ref}
         id={id}
         className={cn(
-          "flex h-10 w-full rounded-lg border px-3 text-sm transition-colors",
+          "flex h-11 w-full rounded-lg border px-3 text-base sm:text-sm transition-colors",
           "border-gray-300 bg-white text-gray-900 placeholder:text-gray-500",
           "dark:border-zinc-700 dark:bg-zinc-800 dark:text-gray-50 dark:placeholder:text-gray-400",
           "focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 dark:focus:ring-offset-zinc-900",

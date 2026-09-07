@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, ConfirmDialog } from "@/components/ui/dialog";
 import { EmptyState, LoadingSkeleton } from "@/components/ui/empty-state";
+import { DataCard } from "@/components/ui/data-card";
 import { formatRupiah, formatAngka } from "@/lib/utils";
 import { satuanOptionsWithCurrent } from "@/lib/satuan";
 import type { Role } from "@/lib/session";
@@ -230,81 +231,51 @@ export function EntityTab({ entity, role }: { entity: EntityUiConfig; role: Role
             }
           />
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[560px] text-sm">
-              <thead>
-                <tr className="border-b border-gray-200 dark:border-zinc-700">
-                  <th className="px-3 py-2 text-left font-medium text-gray-600 dark:text-gray-400">
-                    Nama
-                  </th>
-                  {columns.map((f) => (
-                    <th
-                      key={f.key}
-                      className="px-3 py-2 text-left font-medium text-gray-600 dark:text-gray-400"
-                    >
-                      {f.label}
-                    </th>
-                  ))}
-                  <th className="px-3 py-2 text-right font-medium text-gray-600 dark:text-gray-400">
-                    Aksi
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((row) => (
-                  <tr
-                    key={row.id}
-                    className="border-b border-gray-100 last:border-0 hover:bg-gray-50 dark:border-zinc-800 dark:hover:bg-zinc-900/50"
-                  >
-                    <td className="px-3 py-2.5 font-medium text-gray-900 dark:text-gray-50">
-                      {row.nama}
-                    </td>
-                    {columns.map((f) => {
-                      const v = row[f.key];
-                      let display: React.ReactNode = "-";
-                      if (v !== null && v !== undefined && v !== "") {
-                        display = f.money
-                          ? formatRupiah(Number(v))
-                          : f.type === "number"
-                          ? formatAngka(Number(v), f.key === "harga" || f.key === "hargaRataRata" ? 0 : undefined)
-                          : String(v);
-                      }
-                      return (
-                        <td key={f.key} className="px-3 py-2.5 text-gray-700 dark:text-gray-300">
-                          {display}
-                        </td>
-                      );
-                    })}
-                    <td className="px-3 py-2.5">
-                      <div className="flex justify-end gap-1">
-                        {canWrite ? (
-                          <>
-                            <button
-                              type="button"
-                              onClick={() => openEdit(row)}
-                              aria-label={`Edit ${row.nama}`}
-                              className="flex h-9 w-9 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-zinc-700"
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setDeleteTarget(row)}
-                              aria-label={`Hapus ${row.nama}`}
-                              className="flex h-9 w-9 items-center justify-center rounded-lg text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
-                          </>
-                        ) : (
-                          <span className="text-xs text-gray-400 dark:text-gray-500">Lihat saja</span>
-                        )}
+          <div className="space-y-2">
+            {rows.map((row) => {
+              const bits = columns
+                .map((f) => {
+                  const v = row[f.key];
+                  if (v === null || v === undefined || v === "") return null;
+                  const display = f.money
+                    ? formatRupiah(Number(v))
+                    : f.type === "number"
+                      ? formatAngka(Number(v), f.key === "harga" || f.key === "hargaRataRata" ? 0 : undefined)
+                      : String(v);
+                  return `${f.label} ${display}`;
+                })
+                .filter(Boolean)
+                .slice(0, 3);
+              return (
+                <DataCard
+                  key={row.id}
+                  title={row.nama}
+                  subtitle={bits.join(" · ") || undefined}
+                  trailing={
+                    canWrite ? (
+                      <div className="flex gap-1">
+                        <button
+                          type="button"
+                          onClick={() => openEdit(row)}
+                          aria-label={`Edit ${row.nama}`}
+                          className="flex h-11 w-11 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-zinc-700"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setDeleteTarget(row)}
+                          aria-label={`Hapus ${row.nama}`}
+                          className="flex h-11 w-11 items-center justify-center rounded-lg text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
                       </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                    ) : undefined
+                  }
+                />
+              );
+            })}
           </div>
         )}
       </Card>

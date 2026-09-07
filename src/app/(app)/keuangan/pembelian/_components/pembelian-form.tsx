@@ -36,8 +36,15 @@ export function PembelianForm({
   const [tanggal, setTanggal] = React.useState(() => new Date().toISOString().slice(0, 10));
   const [jatuhTempo, setJatuhTempo] = React.useState("");
   const [keterangan, setKeterangan] = React.useState("");
+  const [metodeBayar, setMetodeBayar] = React.useState<string>("TUNAI");
+  const [bayarSekarang, setBayarSekarang] = React.useState("");
   const [items, setItems] = React.useState<ItemPembelianForm[]>([itemKosong(nextKey())]);
   const [saving, setSaving] = React.useState(false);
+
+  const METODE_OPTIONS: SelectOption[] = [
+    { value: "TUNAI", label: "Tunai / Transfer", hint: "Lunas saat dicatat — kas keluar sekarang" },
+    { value: "KREDIT", label: "Kredit", hint: "Utang ke supplier, bisa DP / cicilan" },
+  ];
 
   const stokOptions: SelectOption[] = [
     ...bahanBaku.map((b) => ({ value: `bb:${b.id}`, label: b.nama, hint: `Bahan Baku · ${b.satuan}` })),
@@ -83,6 +90,8 @@ export function PembelianForm({
     setTanggal(new Date().toISOString().slice(0, 10));
     setJatuhTempo("");
     setKeterangan("");
+    setMetodeBayar("TUNAI");
+    setBayarSekarang("");
     setItems([itemKosong(nextKey())]);
   }
 
@@ -93,8 +102,13 @@ export function PembelianForm({
       toast.error("Pilih supplier dulu");
       return;
     }
-    if (!jatuhTempo) {
-      toast.error("Tanggal jatuh tempo wajib diisi");
+    if (metodeBayar === "KREDIT" && !jatuhTempo) {
+      toast.error("Tanggal jatuh tempo wajib diisi untuk kredit / DP");
+      return;
+    }
+    const dp = metodeBayar === "KREDIT" ? Number(bayarSekarang || 0) : total;
+    if (metodeBayar === "KREDIT" && dp > total) {
+      toast.error("DP tidak boleh melebihi total pembelian");
       return;
     }
     if (items.length === 0 || items.some((it) => !it.itemId)) {
@@ -120,7 +134,8 @@ export function PembelianForm({
           outletId: outletId || undefined,
           tanggal: tanggal ? new Date(tanggal).toISOString() : undefined,
           keterangan: keterangan.trim() || undefined,
-          jatuhTempo: new Date(jatuhTempo).toISOString(),
+          jatuhTempo: (jatuhTempo || tanggal) ? new Date(jatuhTempo || tanggal).toISOString() : undefined,
+          bayarSekarang: dp,
           items: items.map((it) => ({
             bahanBakuId: it.jenis === "BAHAN_BAKU" ? it.itemId : null,
             kemasanId: it.jenis === "KEMASAN" ? it.itemId : null,
@@ -134,7 +149,13 @@ export function PembelianForm({
         toastApiError(data, "Gagal mencatat pembelian");
         return;
       }
-      toast.success(`Pembelian ${data.data.nomor} tersimpan — stok bertambah, utang tercatat`);
+      toast.success(
+        metodeBayar === "TUNAI"
+          ? `Pembelian ${data.data.nomor} lunas — stok bertambah, kas keluar dicatat`
+          : dp > 0
+            ? `Pembelian ${data.data.nomor} tersimpan — DP ${formatRupiah(dp)}, sisa jadi utang`
+            : `Pembelian ${data.data.nomor} tersimpan — stok bertambah, utang tercatat`
+      );
       resetForm();
     } catch {
       toast.error("Tidak bisa terhubung ke server");
@@ -178,14 +199,42 @@ export function PembelianForm({
           value={tanggal}
           onChange={(e) => setTanggal(e.target.value)}
         />
-        <Input
-          label="Jatuh Tempo Pembayaran"
-          type="date"
+        <SearchableSelect
+          label="Metode Bayar"
           required
-          value={jatuhTempo}
-          onChange={(e) => setJatuhTempo(e.target.value)}
+          options={METODE_OPTIONS}
+          value={metodeBayar}
+          onChange={(v) => {
+            setMetodeBayar(v ?? "TUNAI");
+            if (v !== "KREDIT") {
+              setJatuhTempo("");
+              setBayarSekarang("");
+            }
+          }}
         />
       </div>
+
+      {metodeBayar === "KREDIT" && (
+        <div className="grid grid-cols-1 gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3 sm:grid-cols-2 dark:border-amber-900/50 dark:bg-amber-900/10">
+          <Input
+            label="Jatuh Tempo"
+            type="date"
+            required
+            value={jatuhTempo}
+            onChange={(e) => setJatuhTempo(e.target.value)}
+          />
+          <Input
+            label="Bayar Sekarang / DP (opsional)"
+            type="number"
+            inputMode="numeric"
+            min={0}
+            max={total}
+            value={bayarSekarang}
+            onChange={(e) => setBayarSekarang(e.target.value)}
+            placeholder="0"
+          />
+        </div>
+      )}
 
       <Textarea
         label="Keterangan (opsional)"

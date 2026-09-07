@@ -3,12 +3,13 @@
 import * as React from "react";
 import Link from "next/link";
 import { toast } from "sonner";
-import { Plus, Factory, Beaker, Package } from "lucide-react";
+import { Plus, Beaker, Package } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { DataCard } from "@/components/ui/data-card";
 import { EmptyState, LoadingSkeleton } from "@/components/ui/empty-state";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { formatRupiah, formatTanggal } from "@/lib/utils";
@@ -115,53 +116,19 @@ function ProsesTab() {
           }
         />
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[720px] text-left text-sm">
-            <thead>
-              <tr className="border-b border-gray-200 text-gray-600 dark:border-zinc-700 dark:text-gray-400">
-                <th className="whitespace-nowrap py-2 pr-4 font-medium">Nomor</th>
-                <th className="whitespace-nowrap py-2 pr-4 font-medium">Nama</th>
-                <th className="whitespace-nowrap py-2 pr-4 font-medium">Tanggal</th>
-                <th className="whitespace-nowrap py-2 pr-4 font-medium">Outlet</th>
-                <th className="whitespace-nowrap py-2 pr-4 font-medium">Status</th>
-                <th className="whitespace-nowrap py-2 pr-4 font-medium">Bahan Baku</th>
-                <th className="whitespace-nowrap py-2 pr-4 text-right font-medium">Total Biaya</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.map((p) => (
-                <tr key={p.id} className="border-b border-gray-100 last:border-0 dark:border-zinc-800">
-                  <td className="py-3 pr-4">
-                    <Link
-                      href={`/produksi/proses/${p.id}`}
-                      className="font-medium text-blue-600 hover:underline dark:text-blue-400"
-                    >
-                      {p.nomor}
-                    </Link>
-                    <div className="text-xs text-gray-500 dark:text-gray-500">oleh {p.user.nama}</div>
-                  </td>
-                  <td className="whitespace-nowrap py-3 pr-4 text-gray-700 dark:text-gray-300">
-                    {p.nama ?? "-"}
-                  </td>
-                  <td className="whitespace-nowrap py-3 pr-4 text-gray-700 dark:text-gray-300">
-                    {formatTanggal(p.tanggal)}
-                  </td>
-                  <td className="whitespace-nowrap py-3 pr-4 text-gray-700 dark:text-gray-300">
-                    {p.outlet.nama}
-                  </td>
-                  <td className="py-3 pr-4">
-                    {statusBadge(p.status)}
-                  </td>
-                  <td className="py-3 pr-4 text-gray-700 dark:text-gray-300">
-                    {p.jumlahBahanBaku} item
-                  </td>
-                  <td className="whitespace-nowrap py-3 pr-4 text-right font-medium text-gray-900 dark:text-gray-50">
-                    {formatRupiah(p.totalBiaya)}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="space-y-2">
+          {data.map((p) => (
+            <DataCard
+              key={p.id}
+              href={`/produksi/proses/${p.id}`}
+              icon={Beaker}
+              title={p.nomor}
+              badge={statusBadge(p.status)}
+              subtitle={`${p.nama ?? "Tanpa nama"} · ${p.outlet.nama}`}
+              meta={`${formatTanggal(p.tanggal)} · ${p.jumlahBahanBaku} bahan · oleh ${p.user.nama}`}
+              amount={formatRupiah(p.totalBiaya)}
+            />
+          ))}
         </div>
       )}
 
@@ -236,61 +203,18 @@ function OutputTab() {
           }
         />
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[720px] text-left text-sm">
-            <thead>
-              <tr className="border-b border-gray-200 text-gray-600 dark:border-zinc-700 dark:text-gray-400">
-                <th className="whitespace-nowrap py-2 pr-4 font-medium">Nomor</th>
-                <th className="whitespace-nowrap py-2 pr-4 font-medium">Tanggal</th>
-                <th className="whitespace-nowrap py-2 pr-4 font-medium">Outlet</th>
-                <th className="whitespace-nowrap py-2 pr-4 font-medium">Proses</th>
-                <th className="whitespace-nowrap py-2 pr-4 font-medium">Output</th>
-                <th className="whitespace-nowrap py-2 pr-4 text-right font-medium">Total Biaya (HPP)</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.map((o) => (
-                <tr key={o.id} className="border-b border-gray-100 last:border-0 dark:border-zinc-800">
-                  <td className="py-3 pr-4">
-                    <Link
-                      href={`/produksi/output/${o.id}`}
-                      className="font-medium text-blue-600 hover:underline dark:text-blue-400"
-                    >
-                      {o.nomor}
-                    </Link>
-                    <div className="text-xs text-gray-500 dark:text-gray-500">oleh {o.user.nama}</div>
-                  </td>
-                  <td className="whitespace-nowrap py-3 pr-4 text-gray-700 dark:text-gray-300">
-                    {formatTanggal(o.tanggal)}
-                  </td>
-                  <td className="whitespace-nowrap py-3 pr-4 text-gray-700 dark:text-gray-300">
-                    {o.outlet.nama}
-                  </td>
-                  <td className="py-3 pr-4 text-gray-700 dark:text-gray-300">
-                    <div className="flex flex-wrap gap-x-2 gap-y-1">
-                      {o.proses.map((p) => (
-                        <span key={p.id} className="whitespace-nowrap text-xs">
-                          {p.nomor}{p.nama ? ` (${p.nama})` : ""}
-                        </span>
-                      ))}
-                    </div>
-                  </td>
-                  <td className="py-3 pr-4 text-gray-700 dark:text-gray-300">
-                    <div className="flex flex-wrap gap-x-2 gap-y-1">
-                      {o.produkJadi.map((op) => (
-                        <span key={op.id} className="whitespace-nowrap">
-                          {op.produkJadi.nama} ×{op.qty}
-                        </span>
-                      ))}
-                    </div>
-                  </td>
-                  <td className="whitespace-nowrap py-3 pr-4 text-right font-medium text-gray-900 dark:text-gray-50">
-                    {formatRupiah(o.totalBiaya)}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="space-y-2">
+          {data.map((o) => (
+            <DataCard
+              key={o.id}
+              href={`/produksi/output/${o.id}`}
+              icon={Package}
+              title={o.nomor}
+              subtitle={o.produkJadi.map((op) => `${op.produkJadi.nama} ×${op.qty}`).join(", ") || "Belum ada produk"}
+              meta={`${formatTanggal(o.tanggal)} · ${o.outlet.nama} · oleh ${o.user.nama}`}
+              amount={formatRupiah(o.totalBiaya)}
+            />
+          ))}
         </div>
       )}
 
@@ -317,16 +241,14 @@ export function ProduksiListClient() {
       />
 
       <Tabs defaultValue="proses">
-        <div className="flex items-center justify-between gap-4">
-          <TabsList>
-            <TabsTrigger value="proses">
-              <Beaker className="mr-1.5 h-4 w-4" /> Proses
-            </TabsTrigger>
-            <TabsTrigger value="output">
-              <Package className="mr-1.5 h-4 w-4" /> Output
-            </TabsTrigger>
-          </TabsList>
-        </div>
+        <TabsList className="w-full sm:w-auto">
+          <TabsTrigger value="proses" className="flex-1 sm:flex-none">
+            <Beaker className="mr-1.5 h-4 w-4" /> Proses
+          </TabsTrigger>
+          <TabsTrigger value="output" className="flex-1 sm:flex-none">
+            <Package className="mr-1.5 h-4 w-4" /> Output
+          </TabsTrigger>
+        </TabsList>
 
         <TabsContent value="proses">
           <div className="mb-4">

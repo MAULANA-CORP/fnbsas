@@ -39,3 +39,21 @@ export function awalHariIni(): Date {
   const [yyyy, mm, dd] = tanggalWIB().split("-");
   return new Date(`${yyyy}-${mm}-${dd}T00:00:00.000+07:00`);
 }
+
+/** Geser n hari kalender WIB. Tidak terpengaruh timezone server (Jakarta tanpa DST). */
+export function geserHariWIB(tanggal: Date, hari: number): Date {
+  return new Date(tanggal.getTime() + hari * 24 * 60 * 60 * 1000);
+}
+
+/** Daftar kunci 'YYYY-MM-DD' (WIB) dari start s/d end inklusif. */
+export function rentangTanggalWIB(start: Date, end: Date): string[] {
+  const hasil: string[] = [];
+  const awal = new Date(`${tanggalWIB(start)}T12:00:00.000+07:00`);
+  const akhir = new Date(`${tanggalWIB(end)}T12:00:00.000+07:00`);
+  let cursor = awal;
+  while (cursor.getTime() <= akhir.getTime()) {
+    hasil.push(tanggalWIB(cursor));
+    cursor = geserHariWIB(cursor, 1);
+  }
+  return hasil;
+}

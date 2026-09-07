@@ -209,7 +209,7 @@ export function ProsesFormClient() {
   }
 
   return (
-    <div className="pb-24">
+    <div className="pb-28 lg:pb-8">
       <PageHeader title="Buat Proses Baru" description="Input bahan baku yang dipakai untuk memasak. Stok bahan baku akan langsung dikurangi." />
 
       <form onSubmit={handleSubmit} className="space-y-4">
@@ -339,13 +339,16 @@ export function ProsesFormClient() {
           </div>
         </Card>
 
-        <div className="flex justify-end gap-2">
-          <Button type="button" variant="secondary" size="lg" onClick={() => router.push("/produksi")}>
-            Batal
-          </Button>
-          <Button type="submit" size="lg" loading={submitting} disabled={peringatanStok.length > 0}>
-            Simpan Proses
-          </Button>
+        <div className="sticky-cta border-t border-gray-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-900 lg:mt-2 lg:rounded-xl lg:border">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-sm text-gray-600 dark:text-gray-400">Total Biaya</p>
+              <p className="text-lg font-semibold text-gray-900 dark:text-gray-50">{formatRupiah(totalBiaya)}</p>
+            </div>
+            <Button type="submit" size="lg" loading={submitting} disabled={peringatanStok.length > 0}>
+              Simpan Proses
+            </Button>
+          </div>
         </div>
       </form>
     </div>

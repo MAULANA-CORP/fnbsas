@@ -61,13 +61,10 @@ export function ArusKasPanel({ outlets }: { outlets: OutletOption[] }) {
         { header: "Nilai (Rp)", accessor: (r: { label: string; nilai: number }) => r.nilai, width: 20 },
       ],
       rows: [
-        { label: "Penjualan Tunai (CASH/Transfer/QRIS)", nilai: fresh.masuk.penjualanTunai },
-        { label: "Uang Muka Kredit Awal", nilai: fresh.masuk.dpKreditAwal },
-        { label: "Cicilan Piutang Masuk", nilai: fresh.masuk.cicilanPiutang },
+        { label: "Pembayaran Piutang (tunai / DP / cicilan)", nilai: fresh.masuk.cicilanPiutang },
         { label: "Modal Masuk", nilai: fresh.masuk.modalMasuk },
         { label: "Total Kas Masuk", nilai: fresh.masuk.total },
-        { label: "Pembelian Bahan Baku/Kemasan", nilai: -fresh.keluar.pembelian },
-        { label: "Cicilan Utang Keluar", nilai: -fresh.keluar.cicilanUtang },
+        { label: "Pembayaran Utang (tunai / DP / cicilan)", nilai: -fresh.keluar.cicilanUtang },
         { label: "Beban Operasional (Pengeluaran)", nilai: -fresh.keluar.pengeluaran },
         { label: "Prive", nilai: -fresh.keluar.prive },
         { label: "Total Kas Keluar", nilai: -fresh.keluar.total },
@@ -140,9 +137,7 @@ export function ArusKasPanel({ outlets }: { outlets: OutletOption[] }) {
                 <CardTitle>Kas Masuk</CardTitle>
               </CardHeader>
               <div className="space-y-1 text-sm">
-                <Baris label="Penjualan Tunai" nilai={data.masuk.penjualanTunai} />
-                <Baris label="Uang Muka Kredit Awal" nilai={data.masuk.dpKreditAwal} />
-                <Baris label="Cicilan Piutang Masuk" nilai={data.masuk.cicilanPiutang} />
+                <Baris label="Pembayaran Piutang (tunai / DP / cicilan)" nilai={data.masuk.cicilanPiutang} />
                 <Baris label="Modal Masuk" nilai={data.masuk.modalMasuk} />
                 <Baris label="Total" nilai={data.masuk.total} bold garis />
               </div>
@@ -152,8 +147,7 @@ export function ArusKasPanel({ outlets }: { outlets: OutletOption[] }) {
                 <CardTitle>Kas Keluar</CardTitle>
               </CardHeader>
               <div className="space-y-1 text-sm">
-                <Baris label="Pembelian Bahan Baku/Kemasan" nilai={data.keluar.pembelian} />
-                <Baris label="Cicilan Utang Keluar" nilai={data.keluar.cicilanUtang} />
+                <Baris label="Pembayaran Utang (tunai / DP / cicilan)" nilai={data.keluar.cicilanUtang} />
                 <Baris label="Beban Operasional" nilai={data.keluar.pengeluaran} />
                 <Baris label="Prive" nilai={data.keluar.prive} />
                 <Baris label="Total" nilai={data.keluar.total} bold garis />
