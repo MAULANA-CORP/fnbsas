@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { getPrisma } from "@/lib/prisma";
 import { withOwner, catatAudit, apiError } from "@/lib/api-helpers";
-import { runWithoutTenant } from "@/lib/tenant";
 import type { Role } from "@/lib/session";
 
 const ROLES: Role[] = ["OWNER", "FINANCE", "SALES", "PRODUKSI"];
@@ -43,8 +42,8 @@ export const POST = withOwner(async (user, req) => {
 
     if (!nama) return NextResponse.json({ error: "Nama wajib diisi" }, { status: 400 });
     if (!username) return NextResponse.json({ error: "Username wajib diisi" }, { status: 400 });
-    if (password.length < 6) {
-      return NextResponse.json({ error: "Password minimal 6 karakter" }, { status: 400 });
+    if (password.length < 8) {
+      return NextResponse.json({ error: "Password minimal 8 karakter" }, { status: 400 });
     }
     if (!ROLES.includes(role)) {
       return NextResponse.json({ error: "Role tidak valid" }, { status: 400 });
@@ -55,7 +54,7 @@ export const POST = withOwner(async (user, req) => {
       if (!outlet) return NextResponse.json({ error: "Outlet tidak ditemukan" }, { status: 400 });
     }
 
-    const existing = await runWithoutTenant(() => getPrisma().user.findUnique({ where: { username } }));
+    const existing = await getPrisma().user.findFirst({ where: { username } });
     if (existing) {
       return NextResponse.json({ error: "Username sudah dipakai" }, { status: 400 });
     }

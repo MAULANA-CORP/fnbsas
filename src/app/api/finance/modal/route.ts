@@ -90,6 +90,9 @@ export const POST = withOwnerFinance(async (user, req) => {
       sumberDana = null;
     }
 
+    const { assertPeriodeTerbuka } = await import("@/lib/tutup-buku");
+    await assertPeriodeTerbuka(tanggal);
+
     const created = await getPrisma().modal.create({
       data: { tipe, sumberDana: sumberDana as never, jumlah, tanggal, keterangan, userId: user.id },
       include: { user: { select: { nama: true } } },

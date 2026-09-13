@@ -3,57 +3,62 @@ import bcrypt from "bcryptjs";
 import { getPrisma } from "@/lib/prisma";
 import { getSession } from "@/lib/session";
 import { runWithoutTenant } from "@/lib/tenant";
+import { kenaRateLimit, resetRateLimit } from "@/lib/rate-limit";
 
-// Rate limit sederhana per IP (in-memory). Untuk multi-instance, pindahkan ke Redis/DB.
-const percobaan = new Map<string, { n: number; sampai: number }>();
 const MAKS = 5;
 const JENDELA = 15 * 60 * 1000;
-
-function kenaLimit(ip: string) {
-  const now = Date.now();
-  const rec = percobaan.get(ip);
-  if (!rec || now > rec.sampai) {
-    percobaan.set(ip, { n: 1, sampai: now + JENDELA });
-    return false;
-  }
-  rec.n += 1;
-  return rec.n > MAKS;
-}
+const DUMMY_HASH = "$2a$10$abcdefghijklmnopqrstuuC5rQeH3qV0e8y1b2c3d4e5f6g7h8i9e";
 
 export async function POST(req: Request) {
   return runWithoutTenant(() => loginPost(req));
 }
 
 async function loginPost(req: Request) {
-  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+  const ip = req.headers.get("x-forwarded-for")?.split(",").pop()?.trim() ?? "unknown";
+  const key = `login:${ip}`;
 
-  if (kenaLimit(ip)) {
+  if (await kenaRateLimit(key, MAKS, JENDELA)) {
     return NextResponse.json(
       { error: "Terlalu banyak percobaan login. Coba lagi 15 menit lagi." },
       { status: 429 }
     );
   }
 
-  const { username, password } = await req.json();
+  const body = await req.json().catch(() => ({}));
+  const username = String(body?.username ?? "").trim().toLowerCase();
+  const password = String(body?.password ?? "");
+  const slug = String(body?.slug ?? "").trim().toLowerCase();
+
   if (!username || !password) {
     return NextResponse.json({ error: "Username dan password wajib diisi" }, { status: 400 });
   }
 
-  const user = await getPrisma().user.findFirst({
-    where: { username: String(username).toLowerCase(), isActive: true },
+  const candidates = await getPrisma().user.findMany({
+    where: { username, isActive: true },
+    include: { tenant: { select: { slug: true, isSuspended: true } } },
   });
 
   const gagal = NextResponse.json({ error: "Username atau password salah" }, { status: 401 });
 
-  if (!user?.passwordHash) return gagal;
-  if (!(await bcrypt.compare(String(password), user.passwordHash))) return gagal;
+  let user: (typeof candidates)[number] | null = candidates[0] ?? null;
+  if (candidates.length > 1) {
+    if (!slug) {
+      return NextResponse.json(
+        { error: "Username dipakai di lebih dari satu toko. Isi kode toko (slug).", type: "slug_required" },
+        { status: 400 }
+      );
+    }
+    user = candidates.find((c) => c.tenant?.slug === slug) ?? null;
+  }
+
+  if (!user?.passwordHash) {
+    await bcrypt.compare(password, DUMMY_HASH);
+    return gagal;
+  }
+  if (!(await bcrypt.compare(password, user.passwordHash))) return gagal;
 
   if (user.tenantId && user.role !== "PLATFORM_ADMIN") {
-    const toko = await getPrisma().tenant.findUnique({
-      where: { id: user.tenantId },
-      select: { isSuspended: true },
-    });
-    if (toko?.isSuspended) {
+    if (user.tenant?.isSuspended) {
       return NextResponse.json(
         { error: "Toko dinonaktifkan. Hubungi admin Gampangin." },
         { status: 403 }
@@ -72,7 +77,7 @@ async function loginPost(req: Request) {
     data: { lastLoginAt: new Date() },
   });
 
-  percobaan.delete(ip);
+  await resetRateLimit(key);
   return NextResponse.json({
     ok: true,
     nama: user.nama,

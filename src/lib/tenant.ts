@@ -36,6 +36,7 @@ export const TENANTED_MODELS = new Set([
   "Pengeluaran",
   "PembayaranLangganan",
   "VoucherPakai",
+  "TutupBuku",
 ]);
 
 /**

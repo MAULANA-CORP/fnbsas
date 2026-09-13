@@ -116,10 +116,12 @@ export function LabaRugiPanel({ outlets }: { outlets: OutletOption[] }) {
           <Card>
             <CardHeader>
               <CardTitle>Rincian Laba Rugi</CardTitle>
-              <Button size="sm" variant="secondary" onClick={handleExport}>
-                <Download className="h-4 w-4" />
-                Export Excel
-              </Button>
+              <div className="flex gap-2">
+                <Button size="sm" variant="secondary" onClick={handleExport}>
+                  <Download className="h-4 w-4" />
+                  Excel
+                </Button>
+              </div>
             </CardHeader>
             <div className="space-y-1 text-sm">
               <Baris label="Penjualan POS" nilai={data.totalPenjualanPOS} />

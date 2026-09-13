@@ -78,7 +78,12 @@ type Payload =
       topProduk: TopProduk[];
       stokMenipis: StokMenipisItem[];
     }
-  | { role: "SALES"; omzetSaya: { hariIni: number; bulanIni: number }; piutangSaya: { jumlah: number; totalSisa: number } }
+  | {
+      role: "SALES";
+      omzetSaya: { hariIni: number; bulanIni: number };
+      piutangSaya: { jumlah: number; totalSisa: number };
+      orderPending: { jumlah: number };
+    }
   | { role: "PRODUKSI"; produksiTerakhir: ProduksiTerakhir | null; stokMenipis: StokMenipisItem[] };
 
 function StokMenipisCard({ items }: { items: StokMenipisItem[] }) {
@@ -168,6 +173,12 @@ export function DashboardClient({ role }: { role: Role }) {
             value={String(data.piutangSaya.jumlah)}
             hint={`Total sisa ${formatRupiah(data.piutangSaya.totalSisa)}`}
             icon={Wallet}
+          />
+          <StatCard
+            label="Order B2B Pending"
+            value={String(data.orderPending.jumlah)}
+            hint="Draft / Invoice belum dikirim"
+            icon={AlertTriangle}
           />
         </div>
         <div className="mt-4 grid grid-cols-2 gap-3">

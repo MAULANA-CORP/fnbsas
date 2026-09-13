@@ -1,7 +1,7 @@
 # Deploy Gampangin FNB ke EasyPanel
 
 Repo sudah di GitHub: `https://github.com/MAULANA-CORP/fnbsas.git` (branch `main`).
-**Tidak ada folder `prisma/migrations`** — schema di-sync pakai `prisma db push`, bukan `migrate deploy`. Setiap kali `schema.prisma` berubah (contoh: kolom `hargaRataRata` di Kemasan), jalankan `db push` lagi sebelum pakai fitur baru.
+Schema: ada folder `prisma/migrations`. Setelah deploy, jalankan `npx prisma db push` (paling aman di EasyPanel yang sudah pernah `db push`) **atau** `npx prisma migrate deploy` kalau database masih kosong. Kalau `migrate deploy` gagal karena tabel sudah ada, tetap pakai `db push`.
 
 ## 1. PostgreSQL
 
@@ -86,6 +86,8 @@ npx prisma db push
 npx prisma generate
 npm run db:seed
 ```
+
+`db push` menambahkan: `tutup_buku`, `rate_limits`, kolom `order_pos.status`, `outletId` di movement stok, unique `(tenantId, username)`.
 
 Kalau `npx prisma` **not found** (image production slim):
 

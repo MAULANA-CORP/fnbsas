@@ -81,12 +81,19 @@ export async function catatPakaiVoucher(voucherId: string, tenantId: string) {
   await prisma.$transaction(async (tx) => {
     const v = await tx.voucher.findUnique({ where: { id: voucherId } });
     if (!v || !v.isActive) throw new VoucherError("Voucher tidak valid");
-    if (v.maxPakai != null && v.dipakai >= v.maxPakai) throw new VoucherError("Kuota voucher sudah habis");
     try {
       await tx.voucherPakai.create({ data: { voucherId, tenantId } });
     } catch {
       throw new VoucherError("Toko ini sudah memakai voucher ini");
     }
-    await tx.voucher.update({ where: { id: voucherId }, data: { dipakai: { increment: 1 } } });
+    if (v.maxPakai != null) {
+      const n = await tx.voucher.updateMany({
+        where: { id: voucherId, isActive: true, dipakai: { lt: v.maxPakai } },
+        data: { dipakai: { increment: 1 } },
+      });
+      if (n.count === 0) throw new VoucherError("Kuota voucher sudah habis");
+    } else {
+      await tx.voucher.update({ where: { id: voucherId }, data: { dipakai: { increment: 1 } } });
+    }
   });
 }

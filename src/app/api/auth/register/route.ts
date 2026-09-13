@@ -3,29 +3,19 @@ import bcrypt from "bcryptjs";
 import { getPrisma } from "@/lib/prisma";
 import { getSession } from "@/lib/session";
 import { runWithoutTenant, slugifyNamaUsaha } from "@/lib/tenant";
+import { kenaRateLimit, resetRateLimit } from "@/lib/rate-limit";
+import { validasiPassword } from "@/lib/password";
 
-const percobaan = new Map<string, { n: number; sampai: number }>();
 const MAKS = 8;
 const JENDELA = 15 * 60 * 1000;
-
-function kenaLimit(ip: string) {
-  const now = Date.now();
-  const rec = percobaan.get(ip);
-  if (!rec || now > rec.sampai) {
-    percobaan.set(ip, { n: 1, sampai: now + JENDELA });
-    return false;
-  }
-  rec.n += 1;
-  return rec.n > MAKS;
-}
 
 export async function POST(req: Request) {
   return runWithoutTenant(() => registerPost(req));
 }
 
 async function registerPost(req: Request) {
-  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
-  if (kenaLimit(ip)) {
+  const ip = req.headers.get("x-forwarded-for")?.split(",").pop()?.trim() ?? "unknown";
+  if (await kenaRateLimit(`register:${ip}`, MAKS, JENDELA)) {
     return NextResponse.json(
       { error: "Terlalu banyak percobaan daftar. Coba lagi 15 menit lagi." },
       { status: 429 }
@@ -37,6 +27,10 @@ async function registerPost(req: Request) {
   const namaOwner = String(body?.namaOwner ?? "").trim();
   const username = String(body?.username ?? "").trim().toLowerCase();
   const password = String(body?.password ?? "");
+  const honeypot = String(body?.website ?? "").trim();
+  if (honeypot) {
+    return NextResponse.json({ ok: true });
+  }
 
   if (namaUsaha.length < 3) {
     return NextResponse.json({ error: "Nama usaha minimal 3 karakter" }, { status: 400 });
@@ -50,13 +44,16 @@ async function registerPost(req: Request) {
       { status: 400 }
     );
   }
-  if (password.length < 6) {
-    return NextResponse.json({ error: "Password minimal 6 karakter" }, { status: 400 });
+  const errPass = validasiPassword(password);
+  if (errPass) {
+    return NextResponse.json({ error: errPass }, { status: 400 });
   }
 
   const prisma = getPrisma();
-  const existing = await prisma.user.findUnique({ where: { username } });
-  if (existing) {
+  const existingPlatform = await prisma.user.findFirst({
+    where: { username, tenantId: null },
+  });
+  if (existingPlatform) {
     return NextResponse.json({ error: "Username sudah dipakai" }, { status: 400 });
   }
 
@@ -92,7 +89,7 @@ async function registerPost(req: Request) {
   session.isLoggedIn = true;
   await session.save();
 
-  percobaan.delete(ip);
+  await resetRateLimit(`register:${ip}`);
   return NextResponse.json({
     ok: true,
     nama: user.nama,

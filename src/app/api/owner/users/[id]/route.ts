@@ -57,8 +57,8 @@ export const PATCH = withOwner<{ params: Promise<{ id: string }> }>(async (user,
       data.isActive = body.isActive;
     }
     if (typeof body?.password === "string" && body.password) {
-      if (body.password.length < 6) {
-        return NextResponse.json({ error: "Password minimal 6 karakter" }, { status: 400 });
+      if (body.password.length < 8) {
+        return NextResponse.json({ error: "Password minimal 8 karakter" }, { status: 400 });
       }
       data.passwordHash = await bcrypt.hash(body.password, 10);
     }

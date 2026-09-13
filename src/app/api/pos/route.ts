@@ -14,9 +14,13 @@ export const GET = withRole(["OWNER", "SALES", "FINANCE"], async (_user, req) =>
     const metodeBayar = searchParams.get("metodeBayar");
     const dari = searchParams.get("dari");
     const sampai = searchParams.get("sampai");
+    const page = Math.max(1, Number(searchParams.get("page") ?? 1) || 1);
+    const pageSize = Math.min(100, Math.max(1, Number(searchParams.get("pageSize") ?? 50) || 50));
+    const termasukBatal = searchParams.get("termasukBatal") === "1";
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const where: Record<string, any> = {};
+    if (!termasukBatal) where.status = { not: "BATAL" };
     if (status && ["LUNAS", "PARSIAL", "BELUM_BAYAR"].includes(status)) {
       where.statusBayar = status;
     }
@@ -37,20 +41,30 @@ export const GET = withRole(["OWNER", "SALES", "FINANCE"], async (_user, req) =>
       ];
     }
 
-    const orders = await getPrisma().orderPOS.findMany({
-      where,
-      include: {
-        customer: true,
-        outlet: true,
-        user: true,
-        items: { include: { produkJadi: true } },
-        piutang: true,
-      },
-      orderBy: { createdAt: "desc" },
-      take: 200,
-    });
+    const prisma = getPrisma();
+    const [orders, total] = await Promise.all([
+      prisma.orderPOS.findMany({
+        where,
+        include: {
+          customer: true,
+          outlet: true,
+          user: true,
+          items: { include: { produkJadi: true } },
+          piutang: true,
+        },
+        orderBy: { createdAt: "desc" },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+      prisma.orderPOS.count({ where }),
+    ]);
 
-    return NextResponse.json({ orders: orders.map(serializeOrderPOS) });
+    return NextResponse.json({
+      orders: orders.map(serializeOrderPOS),
+      total,
+      page,
+      pageSize,
+    });
   } catch (error) {
     return apiError(error);
   }

@@ -7,6 +7,7 @@ import { catatAudit, type AuthUser } from "@/lib/api-helpers";
 import { getLatestHppPerUnitMap } from "@/lib/finance";
 import { assertBisaTransaksi } from "@/lib/subscription";
 import { tenantCreate } from "@/lib/tenant";
+import { assertPeriodeTerbuka } from "@/lib/tutup-buku";
 
 export type MetodeBayarPOSInput = "CASH" | "TRANSFER_QRIS" | "KREDIT";
 export type KreditTipeInput = "LANGSUNG_LUNAS" | "PARSIAL";
@@ -86,6 +87,7 @@ function tentukanStatusBayar(
  */
 export async function buatOrderPOS(user: AuthUser, input: CreateOrderPOSInput) {
   await assertBisaTransaksi(user);
+  await assertPeriodeTerbuka(new Date());
   validasiInput(input);
 
   const prisma = getPrisma();
@@ -174,6 +176,7 @@ export async function buatOrderPOS(user: AuthUser, input: CreateOrderPOSInput) {
           tipe: "OUT",
           qty: qtyDiminta,
           sumber: "PENJUALAN_POS",
+          outletId: input.outletId,
           referensiId: created.id,
           keterangan: `Penjualan POS ${nomor}`,
         }, user.tenantId),
@@ -219,10 +222,7 @@ export async function buatOrderPOS(user: AuthUser, input: CreateOrderPOSInput) {
 }
 
 /**
- * Batalkan Order POS:
- * - Kembalikan stok Produk Jadi.
- * - Hapus Pembayaran dan Piutang terkait.
- * - Hapus Order POS (Cascade akan menghapus items).
+ * Batalkan Order POS (soft): kembalikan stok, hapus kas/piutang, order tetap ada berstatus BATAL.
  */
 export async function batalOrderPOS(user: AuthUser, id: string) {
   const prisma = getPrisma();
@@ -236,9 +236,11 @@ export async function batalOrderPOS(user: AuthUser, id: string) {
   });
 
   if (!order) throw new PosError("Order POS tidak ditemukan");
+  if (order.status === "BATAL") throw new PosError("Order ini sudah dibatalkan");
+
+  await assertPeriodeTerbuka(order.createdAt);
 
   await prisma.$transaction(async (tx) => {
-    // Kembalikan stok
     for (const it of order.items) {
       await tx.produkJadi.update({
         where: { id: it.produkJadiId },
@@ -250,13 +252,13 @@ export async function batalOrderPOS(user: AuthUser, id: string) {
           tipe: "IN",
           qty: it.qty,
           sumber: "PENJUALAN_POS",
+          outletId: order.outletId,
           referensiId: order.id,
           keterangan: `Batal POS ${order.nomor}`,
         }, user.tenantId),
       });
     }
 
-    // Hapus Piutang & Pembayaran
     if (order.piutang) {
       await tx.pembayaran.deleteMany({
         where: { piutangId: order.piutang.id },
@@ -266,9 +268,9 @@ export async function batalOrderPOS(user: AuthUser, id: string) {
       });
     }
 
-    // Hapus Order (cascade items)
-    await tx.orderPOS.delete({
+    await tx.orderPOS.update({
       where: { id },
+      data: { status: "BATAL", statusBayar: "BELUM_BAYAR" },
     });
   });
 
@@ -277,7 +279,7 @@ export async function batalOrderPOS(user: AuthUser, id: string) {
     aksi: "DELETE",
     entitas: "OrderPOS",
     entitasId: order.id,
-    detail: { nomor: order.nomor },
+    detail: { nomor: order.nomor, status: "BATAL" },
   });
 }
 
@@ -313,6 +315,7 @@ export function serializeOrderPOS(order: {
   outletId: string;
   userId: string;
   metodeBayar: string;
+  status: string;
   statusBayar: string;
   tanggalJatuhTempo: Date | null;
   subtotal: unknown;
@@ -347,6 +350,7 @@ export function serializeOrderPOS(order: {
     outletId: order.outletId,
     userId: order.userId,
     metodeBayar: order.metodeBayar,
+    status: order.status,
     statusBayar: order.statusBayar,
     tanggalJatuhTempo: order.tanggalJatuhTempo,
     subtotal: Number(order.subtotal),

@@ -6,6 +6,7 @@ import { getSession, type Role, type SubscriptionTier } from "@/lib/session";
 import { getPrisma } from "@/lib/prisma";
 import { runWithTenant, runWithoutTenant } from "@/lib/tenant";
 import { SubscriptionError } from "@/lib/subscription";
+import { PeriodeTerkunciError } from "@/lib/tutup-buku";
 
 export interface AuthUser {
   id: string;
@@ -151,6 +152,9 @@ export function apiError(error: unknown) {
       { error: error.message, type: "subscription_limit" },
       { status: error.status }
     );
+  }
+  if (error instanceof PeriodeTerkunciError) {
+    return NextResponse.json({ error: error.message, type: "periode_terkunci" }, { status: 400 });
   }
   console.error("[api]", error);
   const pesan = error instanceof Error ? error.message : "Terjadi kesalahan di server";

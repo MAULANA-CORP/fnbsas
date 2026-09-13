@@ -237,6 +237,7 @@ export async function buatProses(input: BuatProsesInput): Promise<BuatProsesHasi
           tipe: "OUT",
           qty: totalKurang,
           sumber: "PRODUKSI_PAKAI",
+          outletId: input.outletId,
           referensiId: proses.id,
           keterangan:
             waste > 0
@@ -485,6 +486,7 @@ export async function buatOutput(input: BuatOutputInput): Promise<BuatOutputHasi
           tipe: "OUT",
           qty: line.qtyPakai,
           sumber: "PRODUKSI_PAKAI",
+          outletId: input.outletId,
           referensiId: output.id,
           keterangan: `Output ${nomor}: pakai produksi`,
         }),
@@ -524,6 +526,7 @@ export async function buatOutput(input: BuatOutputInput): Promise<BuatOutputHasi
           tipe: "IN",
           qty: line.qty,
           sumber: "PRODUKSI_MASUK",
+          outletId: input.outletId,
           referensiId: output.id,
           keterangan: `Output ${nomor}: hasil produksi`,
         }),
@@ -571,6 +574,7 @@ export async function batalkanProses(userId: string, prosesId: string) {
           tipe: "IN",
           qty,
           sumber: "ADJUSTMENT",
+          outletId: proses.outletId,
           referensiId: proses.id,
           keterangan: `Batal proses ${proses.nomor}: kembalikan ${qty} ${line.bahanBaku.satuan}`,
         }),

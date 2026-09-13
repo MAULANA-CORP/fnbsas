@@ -14,6 +14,8 @@ export const GET = withRole(["OWNER", "SALES", "FINANCE"], async (_user, req) =>
     const agenId = searchParams.get("agenId");
     const outletId = searchParams.get("outletId");
     const q = searchParams.get("q")?.trim();
+    const page = Math.max(1, Number(searchParams.get("page") ?? 1) || 1);
+    const pageSize = Math.min(100, Math.max(1, Number(searchParams.get("pageSize") ?? 50) || 50));
 
     const where: Prisma.OrderB2BWhereInput = {};
     if (status && STATUS_VALID.includes(status)) where.status = status as Prisma.OrderB2BWhereInput["status"];
@@ -26,14 +28,19 @@ export const GET = withRole(["OWNER", "SALES", "FINANCE"], async (_user, req) =>
       ];
     }
 
-    const orders = await getPrisma().orderB2B.findMany({
-      where,
-      include: { agen: true, outlet: true, items: true, invoice: true, suratJalan: true, piutang: true },
-      orderBy: { createdAt: "desc" },
-      take: 300,
-    });
+    const prisma = getPrisma();
+    const [orders, total] = await Promise.all([
+      prisma.orderB2B.findMany({
+        where,
+        include: { agen: true, outlet: true, items: true, invoice: true, suratJalan: true, piutang: true },
+        orderBy: { createdAt: "desc" },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+      prisma.orderB2B.count({ where }),
+    ]);
 
-    return NextResponse.json({ data: orders.map(serializeOrder) });
+    return NextResponse.json({ data: orders.map(serializeOrder), total, page, pageSize });
   } catch (error) {
     return apiError(error);
   }

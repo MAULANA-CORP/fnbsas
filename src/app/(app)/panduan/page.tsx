@@ -3,6 +3,8 @@ import type { LucideIcon } from "lucide-react";
 import { Store, Users, Database, Factory, ShoppingCart, Briefcase, Wallet, LayoutDashboard, Sparkles } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardTitle } from "@/components/ui/card";
+import { TombolLatihan } from "./tombol-latihan";
+import { getCurrentUser } from "@/lib/api-helpers";
 
 // Halaman statis (quick start guide) — konten latihan/contoh, tidak terhubung ke data
 // asli. Bisa diakses semua role (lihat PRD §3.11 & nav-items.ts).
@@ -172,12 +174,14 @@ const steps: Step[] = [
   },
 ];
 
-export default function PanduanPage() {
+export default async function PanduanPage() {
+  const user = await getCurrentUser();
   return (
     <div>
       <PageHeader
         title="Panduan"
         description="Quick start guide — ikuti urutan langkah di bawah supaya Gampangin FNB siap dipakai. Boleh dipraktikkan dulu pakai data latihan; kalau sudah siap pakai data asli, Owner bisa membersihkan data latihan lewat Owner Room → Reset Data."
+        action={user?.role === "OWNER" ? <TombolLatihan /> : undefined}
       />
 
       <div className="space-y-4">

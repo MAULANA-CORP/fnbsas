@@ -10,7 +10,7 @@ Gampangin FNB adalah aplikasi manajemen operasional internal untuk bisnis Food &
 
 - **Aksesibilitas:** Web, wajib mobile-friendly (PWA) — Sales & Produksi banyak input dari HP di lapangan/dapur.
 - **Pengguna:** 4 role — OWNER, FINANCE, SALES, PRODUKSI (lihat §7 untuk detail akses).
-- **Auth:** Username & Password (iron-session), tanpa Google OAuth. Akun dibuat oleh Owner lewat User Management.
+- **Auth:** Username & Password (iron-session), tanpa Google OAuth. Akun dibuat oleh Owner lewat User Management. Username unik per toko; kalau bentrok antar toko, login minta kode toko (slug). Password minimal 8 karakter.
 - **Multi-outlet:** Satu brand, banyak outlet/cabang. Transaksi, stok, dan laporan bisa difilter per outlet.
 - **Data Input:** Manual entry, import (CSV) untuk Database (Bahan Baku/Kemasan/Produk/Customer/Agen/Supplier), dan auto-entry dari transaksi (customer/agen baru otomatis masuk Database saat transaksi pertama).
 - **Export:** Excel untuk laporan keuangan. Invoice B2B dicetak lewat browser (Cetak / Simpan PDF).
@@ -68,7 +68,7 @@ Master data, masing-masing bisa diisi lewat **Import (CSV)**, **Entry manual**, 
 ### 3.7 Inventory (Must-have)
 - 3 ledger stok terpisah: **Produk Jadi**, **Bahan Baku**, **Kemasan**.
 - Riwayat pergerakan stok (in/out) dengan referensi sumber (pembelian, produksi, penjualan, adjustment manual, waste).
-- Stok **terpusat per toko (tenant)** di v1 — satu angka stok bahan baku / kemasan / produk jadi untuk semua outlet. Filter outlet berlaku pada transaksi (POS/B2B/produksi/pembelian), bukan ledger stok terpisah per cabang. Stok per outlet = backlog.
+- Stok master tetap satu angka per toko (total). Pergerakan stok mencatat `outletId` supaya laporan/Neraca bisa difilter per cabang. Stok cabang = netto movement di outlet itu; stok tanpa outlet = pusat.
 - Alert stok menipis (ambang batas per item).
 
 ### 3.8 Finance Room (role Finance, Must-have)

@@ -92,6 +92,8 @@ export const POST = withOwnerFinance(async (user, req) => {
     }
 
     await assertBisaTransaksi(user);
+    const { assertPeriodeTerbuka } = await import("@/lib/tutup-buku");
+    await assertPeriodeTerbuka(tanggal);
 
     const created = await getPrisma().pengeluaran.create({
       data: { kategori, jumlah, tanggal, outletId, keterangan, userId: user.id },

@@ -59,9 +59,10 @@ export interface HppInfo {
  * produk itu (lihat catatan asumsi #1 di atas). Produk tanpa riwayat produksi
  * dikembalikan dengan hppPerUnit=0, diketahui=false.
  */
-export async function getLatestHppPerUnitMap(): Promise<Map<string, HppInfo>> {
+export async function getLatestHppPerUnitMap(asOf?: Date): Promise<Map<string, HppInfo>> {
   const prisma = getPrisma();
   const items = await prisma.outputProdukJadi.findMany({
+    where: asOf ? { output: { tanggal: { lte: asOf } } } : undefined,
     select: {
       produkJadiId: true,
       outputId: true,
@@ -113,7 +114,7 @@ function hppFromMap(map: Map<string, HppInfo>, produkJadiId: string): number {
  //    `OutputKemasan.hargaSatuanSaatItu`
  * (tanggal = tanggal batch produksi yang memakainya) — mana pun yang paling baru dipakai.
  */
-async function getLatestUnitCostMap(kind: "bahanBaku" | "kemasan"): Promise<Map<string, number>> {
+async function getLatestUnitCostMap(kind: "bahanBaku" | "kemasan", asOf?: Date): Promise<Map<string, number>> {
   const prisma = getPrisma();
   const observasi: Array<{ id: string; harga: number; tanggal: Date }> = [];
 
@@ -149,6 +150,7 @@ async function getLatestUnitCostMap(kind: "bahanBaku" | "kemasan"): Promise<Map<
 
   const terbaik = new Map<string, { harga: number; tanggal: Date }>();
   for (const o of observasi) {
+    if (asOf && o.tanggal.getTime() > asOf.getTime()) continue;
     const cur = terbaik.get(o.id);
     if (!cur || o.tanggal.getTime() > cur.tanggal.getTime()) {
       terbaik.set(o.id, { harga: o.harga, tanggal: o.tanggal });
@@ -180,56 +182,97 @@ export interface NilaiStokResult {
 }
 
 /** Nilai stok saat ini atau pada tanggal tertentu (asOf). Dipakai di Neraca (Aset) & Laporan Stok. */
-export async function hitungNilaiStok(asOf?: Date): Promise<NilaiStokResult> {
+export async function hitungNilaiStok(asOf?: Date, outletId?: string | null): Promise<NilaiStokResult> {
   const prisma = getPrisma();
   const [bahanBakuList, kemasanList, produkJadiList, bahanBakuCost, kemasanCost, hppMap] = await Promise.all([
     prisma.bahanBaku.findMany({ select: { id: true, nama: true, satuan: true, stok: true } }),
     prisma.kemasan.findMany({ select: { id: true, nama: true, satuan: true, stok: true } }),
     prisma.produkJadi.findMany({ select: { id: true, nama: true, satuan: true, stok: true } }),
-    getLatestUnitCostMap("bahanBaku"),
-    getLatestUnitCostMap("kemasan"),
-    getLatestHppPerUnitMap(),
+    getLatestUnitCostMap("bahanBaku", asOf),
+    getLatestUnitCostMap("kemasan", asOf),
+    getLatestHppPerUnitMap(asOf),
   ]);
 
-  let bbMovement: any[] = [];
-  let kemasanMovement: any[] = [];
-  let pjMovement: any[] = [];
+  type Mov = { id: string; tipe: string; qty: number };
+  const toMov = (
+    rows: Array<{ _sum: { qty: number | null }; tipe: string } & Record<string, string>>,
+    idField: string
+  ): Mov[] => rows.map((r) => ({ id: r[idField], tipe: r.tipe, qty: Number(r._sum.qty ?? 0) }));
 
-  if (asOf) {
-    [bbMovement, kemasanMovement, pjMovement] = await Promise.all([
+  let bbMov: Mov[] = [];
+  let kmMov: Mov[] = [];
+  let pjMov: Mov[] = [];
+
+  const outletFilter = outletId ? { outletId } : {};
+
+  if (asOf && !outletId) {
+    const [bb, km, pj] = await Promise.all([
       prisma.stokMovementBahanBaku.groupBy({
         by: ["bahanBakuId", "tipe"],
-        where: { tanggal: { lte: asOf } },
+        where: { tanggal: { gt: asOf } },
         _sum: { qty: true },
       }),
       prisma.stokMovementKemasan.groupBy({
         by: ["kemasanId", "tipe"],
-        where: { tanggal: { lte: asOf } },
+        where: { tanggal: { gt: asOf } },
         _sum: { qty: true },
       }),
       prisma.stokMovementProdukJadi.groupBy({
         by: ["produkJadiId", "tipe"],
-        where: { tanggal: { lte: asOf } },
+        where: { tanggal: { gt: asOf } },
         _sum: { qty: true },
       }),
     ]);
+    bbMov = toMov(bb as never, "bahanBakuId");
+    kmMov = toMov(km as never, "kemasanId");
+    pjMov = toMov(pj as never, "produkJadiId");
+  } else if (outletId) {
+    const tgl = asOf ? { tanggal: { lte: asOf }, ...outletFilter } : outletFilter;
+    const [bb, km, pj] = await Promise.all([
+      prisma.stokMovementBahanBaku.groupBy({
+        by: ["bahanBakuId", "tipe"],
+        where: tgl,
+        _sum: { qty: true },
+      }),
+      prisma.stokMovementKemasan.groupBy({
+        by: ["kemasanId", "tipe"],
+        where: tgl,
+        _sum: { qty: true },
+      }),
+      prisma.stokMovementProdukJadi.groupBy({
+        by: ["produkJadiId", "tipe"],
+        where: tgl,
+        _sum: { qty: true },
+      }),
+    ]);
+    bbMov = toMov(bb as never, "bahanBakuId");
+    kmMov = toMov(km as never, "kemasanId");
+    pjMov = toMov(pj as never, "produkJadiId");
   }
 
-  const getStok = (id: string, current: number, movements: any[], idField: string) => {
-    if (!asOf) return current;
-    let stok = 0;
-    for (const m of movements) {
-      if (m[idField] === id) {
-        if (m.tipe === "IN") stok += Number(m._sum.qty);
-        if (m.tipe === "OUT") stok -= Number(m._sum.qty);
+  const getStok = (id: string, current: number, movements: Mov[]) => {
+    if (outletId) {
+      let stok = 0;
+      for (const m of movements) {
+        if (m.id !== id) continue;
+        if (m.tipe === "IN") stok += m.qty;
+        if (m.tipe === "OUT") stok -= m.qty;
       }
+      return stok;
+    }
+    if (!asOf) return current;
+    let stok = current;
+    for (const m of movements) {
+      if (m.id !== id) continue;
+      if (m.tipe === "IN") stok -= m.qty;
+      if (m.tipe === "OUT") stok += m.qty;
     }
     return stok;
   };
 
   const bahanBaku: NilaiStokItem[] = bahanBakuList.map((b) => {
     const harga = bahanBakuCost.get(b.id) ?? 0;
-    const stok = getStok(b.id, Number(b.stok), bbMovement, "bahanBakuId");
+    const stok = getStok(b.id, Number(b.stok), bbMov);
     return {
       id: b.id,
       nama: b.nama,
@@ -242,7 +285,7 @@ export async function hitungNilaiStok(asOf?: Date): Promise<NilaiStokResult> {
   });
   const kemasan: NilaiStokItem[] = kemasanList.map((k) => {
     const harga = kemasanCost.get(k.id) ?? 0;
-    const stok = getStok(k.id, Number(k.stok), kemasanMovement, "kemasanId");
+    const stok = getStok(k.id, Number(k.stok), kmMov);
     return {
       id: k.id,
       nama: k.nama,
@@ -256,7 +299,7 @@ export async function hitungNilaiStok(asOf?: Date): Promise<NilaiStokResult> {
   const produkJadi: NilaiStokItem[] = produkJadiList.map((p) => {
     const info = hppMap.get(p.id);
     const harga = info?.hppPerUnit ?? 0;
-    const stok = getStok(p.id, Number(p.stok), pjMovement, "produkJadiId");
+    const stok = getStok(p.id, Number(p.stok), pjMov);
     return {
       id: p.id,
       nama: p.nama,
@@ -307,7 +350,11 @@ export async function hitungLabaRugi(filter: PeriodeFilter): Promise<LabaRugiRes
 
   const [orderPOS, orderB2B, posItems, b2bItems, pengeluaran, hppMap] = await Promise.all([
     prisma.orderPOS.findMany({
-      where: { createdAt: { gte: start, lte: end }, ...(outletId ? { outletId } : {}) },
+      where: {
+        createdAt: { gte: start, lte: end },
+        status: { not: "BATAL" },
+        ...(outletId ? { outletId } : {}),
+      },
       select: { total: true },
     }),
     prisma.orderB2B.findMany({
@@ -320,7 +367,11 @@ export async function hitungLabaRugi(filter: PeriodeFilter): Promise<LabaRugiRes
     }),
     prisma.orderPOSItem.findMany({
       where: {
-        orderPOS: { createdAt: { gte: start, lte: end }, ...(outletId ? { outletId } : {}) },
+        orderPOS: {
+          createdAt: { gte: start, lte: end },
+          status: { not: "BATAL" },
+          ...(outletId ? { outletId } : {}),
+        },
       },
       select: { produkJadiId: true, qty: true, hppSatuanSaatItu: true },
     }),
@@ -337,7 +388,7 @@ export async function hitungLabaRugi(filter: PeriodeFilter): Promise<LabaRugiRes
     prisma.pengeluaran.findMany({
       where: {
         tanggal: { gte: start, lte: end },
-        ...(outletId ? { OR: [{ outletId }, { outletId: null }] } : {}),
+        ...(outletId ? { outletId } : {}),
       },
       select: { jumlah: true, kategori: true },
     }),
@@ -402,6 +453,7 @@ export interface ArusKasResult {
     cicilanUtang: number; // Pembayaran tipe UTANG
     pengeluaran: number; // beban operasional
     prive: number;
+    biayaProduksi: number;
     total: number;
   };
   arusKasBersih: number;
@@ -416,61 +468,82 @@ export async function hitungArusKas(filter: PeriodeFilter): Promise<ArusKasResul
 
   // Kas masuk & kas keluar pembelian/utang terpusat dari tabel Pembayaran.
   // Pembelian kredit tidak menguras kas sampai ada pembayaran (tunai / DP / cicilan).
-  const [pembayaranPiutang, modalList, cicilanUtang, pengeluaranList, pinjamanList] =
+  const [pembayaranPiutang, modalList, cicilanUtang, pengeluaranList, pinjamanList, biayaProduksiList] =
     await Promise.all([
       prisma.pembayaran.findMany({
         where: {
           tipe: "PIUTANG",
           tanggal: { gte: start, lte: end },
-          ...(outletId ? { piutang: { OR: [{ orderPOS: { outletId } }, { orderB2B: { outletId } }] } } : {}),
+          piutang: {
+            OR: [
+              { orderPOS: { status: { not: "BATAL" }, ...(outletId ? { outletId } : {}) } },
+              { orderB2B: { status: { not: "BATAL" }, ...(outletId ? { outletId } : {}) } },
+            ],
+          },
         },
         select: { jumlah: true },
       }),
-      prisma.modal.findMany({
-        where: { tanggal: { gte: start, lte: end } },
-        select: { jumlah: true, tipe: true },
-      }),
+      outletId
+        ? Promise.resolve([])
+        : prisma.modal.findMany({
+            where: { tanggal: { gte: start, lte: end } },
+            select: { jumlah: true, tipe: true, sumberDana: true },
+          }),
       prisma.pembayaran.findMany({
         where: {
           tipe: "UTANG",
           tanggal: { gte: start, lte: end },
-          ...(outletId
-            ? { utang: { OR: [{ pembelian: { outletId } }, { pembelianId: null }] } }
-            : {}),
+          ...(outletId ? { utang: { pembelian: { outletId } } } : {}),
         },
         select: { jumlah: true },
       }),
       prisma.pengeluaran.findMany({
         where: {
           tanggal: { gte: start, lte: end },
-          ...(outletId ? { OR: [{ outletId }, { outletId: null }] } : {}),
+          ...(outletId ? { outletId } : {}),
         },
         select: { jumlah: true },
       }),
-      prisma.utang.findMany({
+      outletId
+        ? Promise.resolve([])
+        : prisma.utang.findMany({
+            where: {
+              sumber: { in: ["PINJAMAN", "INVESTOR"] },
+              createdAt: { gte: start, lte: end },
+            },
+            select: { totalUtang: true },
+          }),
+      prisma.outputBiayaLain.findMany({
         where: {
-          sumber: { in: ["PINJAMAN", "INVESTOR"] },
-          createdAt: { gte: start, lte: end },
+          output: {
+            tanggal: { gte: start, lte: end },
+            ...(outletId ? { outletId } : {}),
+          },
         },
-        select: { totalUtang: true },
+        select: { jumlah: true },
       }),
     ]);
 
-  const penjualanTunai = 0; // obsolete, now part of cicilanPiutang (pembayaran)
-  const dpKreditAwal = 0; // obsolete, now part of cicilanPiutang (pembayaran)
+  const penjualanTunai = 0;
+  const dpKreditAwal = 0;
   const cicilanPiutangTotal = pembayaranPiutang.reduce((s, p) => s + Number(p.jumlah), 0);
   const modalMasuk = modalList
-    .filter((m) => m.tipe === "MODAL_AWAL" || m.tipe === "PENAMBAHAN")
+    .filter((m) => {
+      if (m.tipe !== "MODAL_AWAL" && m.tipe !== "PENAMBAHAN") return false;
+      if (m.sumberDana === "PINJAMAN" || m.sumberDana === "INVESTOR") return false;
+      return true;
+    })
     .reduce((s, m) => s + Number(m.jumlah), 0);
   const pinjamanMasuk = pinjamanList.reduce((s, u) => s + Number(u.totalUtang), 0);
   const prive = modalList.filter((m) => m.tipe === "PRIVE").reduce((s, m) => s + Number(m.jumlah), 0);
 
-  const pembelianTotal = 0; // opsi A: kas keluar pembelian hanya via Pembayaran UTANG
+  const pembelianTotal = 0;
   const cicilanUtangTotal = cicilanUtang.reduce((s, p) => s + Number(p.jumlah), 0);
   const pengeluaranTotal = pengeluaranList.reduce((s, p) => s + Number(p.jumlah), 0);
+  const biayaProduksi = biayaProduksiList.reduce((s, b) => s + Number(b.jumlah), 0);
 
   const masukTotal = penjualanTunai + dpKreditAwal + cicilanPiutangTotal + modalMasuk + pinjamanMasuk;
-  const keluarTotal = pembelianTotal + cicilanUtangTotal + pengeluaranTotal + prive;
+  const keluarTotal = pembelianTotal + cicilanUtangTotal + pengeluaranTotal + prive + biayaProduksi;
 
   return {
     periode: { start: start.toISOString(), end: end.toISOString() },
@@ -487,6 +560,7 @@ export async function hitungArusKas(filter: PeriodeFilter): Promise<ArusKasResul
       cicilanUtang: cicilanUtangTotal,
       pengeluaran: pengeluaranTotal,
       prive,
+      biayaProduksi,
       total: keluarTotal,
     },
     arusKasBersih: masukTotal - keluarTotal,
@@ -618,7 +692,7 @@ export async function hitungNeraca(asOf: Date, outletId?: string | null): Promis
       where: { createdAt: { lte: asOf } },
       select: { totalUtang: true, sumber: true, pembelian: { select: { outletId: true } }, pembayaran: { where: { tanggal: { lte: asOf } }, select: { jumlah: true } } },
     }),
-    hitungNilaiStok(asOf),
+    hitungNilaiStok(asOf, outletId),
     prisma.modal.findMany({ where: { tanggal: { lte: asOf } }, select: { jumlah: true, tipe: true } }),
     hitungLabaRugi({ start: EPOCH, end: asOf, outletId }),
   ]);

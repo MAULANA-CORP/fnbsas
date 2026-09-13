@@ -47,6 +47,12 @@ export default async function ReportPage() {
       title: "Laporan Stok",
       desc: "Level stok & nilai stok saat ini untuk Bahan Baku, Kemasan, Produk Jadi.",
     },
+    {
+      href: "/report/pengeluaran",
+      icon: Wallet,
+      title: "Laporan Pengeluaran",
+      desc: "Beban operasional, export Excel dan PDF.",
+    },
   ];
 
   return (
@@ -60,7 +66,7 @@ export default async function ReportPage() {
                 <div className="rounded-lg bg-blue-50 p-2 dark:bg-blue-900/30">
                   <l.icon className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                 </div>
-                <ArrowRight className="h-4 w-4 text-gray-400" />
+                <ArrowRight className="h-4 w-4 text-gray-500 dark:text-gray-400" />
               </div>
               <p className="font-medium text-gray-900 dark:text-gray-50">{l.title}</p>
               <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">{l.desc}</p>

@@ -67,6 +67,7 @@ export function ArusKasPanel({ outlets }: { outlets: OutletOption[] }) {
         { label: "Total Kas Masuk", nilai: fresh.masuk.total },
         { label: "Pembayaran Utang (tunai / DP / cicilan)", nilai: -fresh.keluar.cicilanUtang },
         { label: "Beban Operasional (Pengeluaran)", nilai: -fresh.keluar.pengeluaran },
+        { label: "Biaya produksi (gas, dll)", nilai: -(fresh.keluar.biayaProduksi ?? 0) },
         { label: "Prive", nilai: -fresh.keluar.prive },
         { label: "Total Kas Keluar", nilai: -fresh.keluar.total },
         { label: "Arus Kas Bersih", nilai: fresh.arusKasBersih },
@@ -151,6 +152,7 @@ export function ArusKasPanel({ outlets }: { outlets: OutletOption[] }) {
               <div className="space-y-1 text-sm">
                 <Baris label="Pembayaran Utang (tunai / DP / cicilan)" nilai={data.keluar.cicilanUtang} />
                 <Baris label="Beban Operasional" nilai={data.keluar.pengeluaran} />
+                <Baris label="Biaya produksi (gas, dll)" nilai={data.keluar.biayaProduksi ?? 0} />
                 <Baris label="Prive" nilai={data.keluar.prive} />
                 <Baris label="Total" nilai={data.keluar.total} bold garis />
               </div>

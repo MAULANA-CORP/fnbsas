@@ -26,6 +26,7 @@ export default async function AppGroupLayout({ children }: { children: React.Rea
       nama={user.nama}
       role={user.role}
       namaToko={pengaturan?.namaToko ?? user.tenantNama ?? "Gampangin FNB"}
+      logoUrl={pengaturan?.logoUrl ?? null}
       tier={user.tier}
       kuota={
         ringkasan

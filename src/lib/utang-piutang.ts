@@ -10,6 +10,7 @@ import { catatAudit, type AuthUser } from "@/lib/api-helpers";
 import { buatNomorDokumen } from "@/lib/utils";
 import { tenantCreate } from "@/lib/tenant";
 import { hitungStatusOrder } from "@/lib/b2b";
+import { assertPeriodeTerbuka } from "@/lib/tutup-buku";
 
 export type StatusBayarValue = "LUNAS" | "PARSIAL" | "BELUM_BAYAR";
 export type SumberUtangValue = "PEMBELIAN" | "PINJAMAN" | "INVESTOR";
@@ -53,6 +54,7 @@ function validasiJumlah(jumlah: number) {
  */
 export async function rekamPembayaran(user: AuthUser, input: RekamPembayaranInput) {
   validasiJumlah(input.jumlah);
+  await assertPeriodeTerbuka(input.tanggal ? new Date(input.tanggal) : new Date());
   const prisma = getPrisma();
   const tanggal = input.tanggal ? new Date(input.tanggal) : new Date();
   if (Number.isNaN(tanggal.getTime())) throw new UtangPiutangError("Tanggal pembayaran tidak valid");
@@ -213,6 +215,7 @@ function validasiItemPembelian(items: ItemPembelianInput[]) {
 export async function buatPembelian(user: AuthUser, input: BuatPembelianInput) {
   const { assertBisaTransaksi } = await import("@/lib/subscription");
   await assertBisaTransaksi(user);
+  await assertPeriodeTerbuka(input.tanggal ? new Date(input.tanggal) : new Date());
   validasiItemPembelian(input.items);
 
   const tanggal = input.tanggal ? new Date(input.tanggal) : new Date();
@@ -295,6 +298,7 @@ export async function buatPembelian(user: AuthUser, input: BuatPembelianInput) {
             tipe: "IN",
             qty: item.qty,
             sumber: "PEMBELIAN",
+            outletId: input.outletId || null,
             referensiId: pembelianBaru.id,
             tanggal,
             keterangan: `Pembelian ${nomor} dari ${supplier.nama}`,
@@ -323,6 +327,7 @@ export async function buatPembelian(user: AuthUser, input: BuatPembelianInput) {
             tipe: "IN",
             qty: item.qty,
             sumber: "PEMBELIAN",
+            outletId: input.outletId || null,
             referensiId: pembelianBaru.id,
             tanggal,
             keterangan: `Pembelian ${nomor} dari ${supplier.nama}`,

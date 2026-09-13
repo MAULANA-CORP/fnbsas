@@ -227,6 +227,7 @@ export interface DashboardSales {
   role: "SALES";
   omzetSaya: { hariIni: number; bulanIni: number };
   piutangSaya: { jumlah: number; totalSisa: number };
+  orderPending: { jumlah: number };
 }
 
 export interface DashboardProduksi {
@@ -283,8 +284,14 @@ export async function getDashboardData(user: AuthUser, outletId?: string): Promi
   }
 
   if (user.role === "SALES") {
-    const [omzetS, piutangS] = await Promise.all([omzetSaya(user.id), piutangSaya(user.id)]);
-    return { role: "SALES", omzetSaya: omzetS, piutangSaya: piutangS };
+    const [omzetS, piutangS, pending] = await Promise.all([
+      omzetSaya(user.id),
+      piutangSaya(user.id),
+      getPrisma().orderB2B.count({
+        where: { userId: user.id, status: { in: ["DRAFT", "INVOICE"] } },
+      }),
+    ]);
+    return { role: "SALES", omzetSaya: omzetS, piutangSaya: piutangS, orderPending: { jumlah: pending } };
   }
 
   // PRODUKSI

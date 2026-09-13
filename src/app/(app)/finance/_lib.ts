@@ -70,6 +70,7 @@ export interface ArusKasResult {
     cicilanUtang: number;
     pengeluaran: number;
     prive: number;
+    biayaProduksi: number;
     total: number;
   };
   arusKasBersih: number;

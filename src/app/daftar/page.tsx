@@ -68,13 +68,16 @@ export default function DaftarPage() {
             onChange={(e) => setUsername(e.target.value)}
           />
           <Input
-            label="Password"
+            label="Password (min. 8 karakter)"
             type="password"
             required
             autoComplete="new-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
           />
+          <div className="hidden" aria-hidden>
+            <input tabIndex={-1} autoComplete="off" name="website" value="" readOnly />
+          </div>
           <Button type="submit" className="w-full bg-[#B42318] hover:bg-[#8F1A12] dark:bg-[#B42318]" loading={loading}>
             Buat akun
           </Button>

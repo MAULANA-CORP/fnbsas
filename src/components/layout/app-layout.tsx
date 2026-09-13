@@ -28,6 +28,7 @@ export function AppLayout({
   nama,
   role,
   namaToko,
+  logoUrl,
   tier,
   kuota,
   children,
@@ -35,6 +36,7 @@ export function AppLayout({
   nama: string;
   role: Role;
   namaToko: string;
+  logoUrl?: string | null;
   tier?: SubscriptionTier | null;
   kuota?: {
     transaksiTerpakai: number;
@@ -74,9 +76,14 @@ export function AppLayout({
       {/* Sidebar desktop */}
       <aside className="hidden w-64 shrink-0 border-r border-gray-200 dark:border-zinc-800 lg:flex lg:flex-col">
         <div className="flex h-14 items-center gap-2 border-b border-gray-200 px-4 dark:border-zinc-800">
-          <div className="rounded-lg bg-blue-600 p-1.5 dark:bg-blue-500">
-            <Store className="h-4 w-4 text-white" />
-          </div>
+          {logoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={logoUrl} alt="" className="h-8 w-8 rounded-lg object-cover" />
+          ) : (
+            <div className="rounded-lg bg-blue-600 p-1.5 dark:bg-blue-500">
+              <Store className="h-4 w-4 text-white" />
+            </div>
+          )}
           <span className="truncate text-sm font-semibold text-gray-900 dark:text-gray-50">{namaToko}</span>
           {tier && (
             <span className={`ml-auto rounded-full px-2 py-0.5 text-[10px] font-semibold ${TIER_TONE[tier]}`}>

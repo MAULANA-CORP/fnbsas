@@ -13,6 +13,8 @@ function LoginForm() {
   const params = useSearchParams();
   const [username, setUsername] = React.useState("");
   const [password, setPassword] = React.useState("");
+  const [slug, setSlug] = React.useState("");
+  const [butuhSlug, setButuhSlug] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -22,10 +24,11 @@ function LoginForm() {
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({ username, password, slug: slug || undefined }),
       });
       const data = await res.json();
       if (!res.ok) {
+        if (data.type === "slug_required") setButuhSlug(true);
         toast.error(data.error ?? "Login gagal");
         return;
       }
@@ -68,6 +71,14 @@ function LoginForm() {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
         />
+        {(butuhSlug || slug) && (
+          <Input
+            label="Kode toko (slug)"
+            placeholder="contoh: dapur-cabe-ab12"
+            value={slug}
+            onChange={(e) => setSlug(e.target.value)}
+          />
+        )}
         <Button type="submit" className="w-full" loading={loading}>
           Masuk
         </Button>

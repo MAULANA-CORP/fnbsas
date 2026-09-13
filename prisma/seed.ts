@@ -35,18 +35,24 @@ async function seedTenant(opts: {
     create: { id: opts.outletId, tenantId: tenant.id, nama: opts.outletNama },
   });
 
-  const owner = await prisma.user.upsert({
-    where: { username: opts.username },
-    update: { tenantId: tenant.id, outletId: outlet.id, role: "OWNER" },
-    create: {
-      nama: opts.namaOwner,
-      username: opts.username,
-      passwordHash: opts.passwordHash,
-      role: "OWNER",
-      tenantId: tenant.id,
-      outletId: outlet.id,
-    },
+  const existingOwner = await prisma.user.findFirst({
+    where: { username: opts.username, tenantId: tenant.id },
   });
+  const owner = existingOwner
+    ? await prisma.user.update({
+        where: { id: existingOwner.id },
+        data: { tenantId: tenant.id, outletId: outlet.id, role: "OWNER", passwordHash: opts.passwordHash },
+      })
+    : await prisma.user.create({
+        data: {
+          nama: opts.namaOwner,
+          username: opts.username,
+          passwordHash: opts.passwordHash,
+          role: "OWNER",
+          tenantId: tenant.id,
+          outletId: outlet.id,
+        },
+      });
 
   await prisma.pengaturan.upsert({
     where: { tenantId: tenant.id },
@@ -95,17 +101,25 @@ async function main() {
     customerNama: "Pelanggan Umum",
   });
 
-  await prisma.user.upsert({
-    where: { username: "superadmin" },
-    update: { role: "PLATFORM_ADMIN", tenantId: null },
-    create: {
-      nama: "Platform Admin",
-      username: "superadmin",
-      passwordHash,
-      role: "PLATFORM_ADMIN",
-      tenantId: null,
-    },
+  const existingAdmin = await prisma.user.findFirst({
+    where: { username: "superadmin", role: "PLATFORM_ADMIN" },
   });
+  if (existingAdmin) {
+    await prisma.user.update({
+      where: { id: existingAdmin.id },
+      data: { role: "PLATFORM_ADMIN", tenantId: null, passwordHash },
+    });
+  } else {
+    await prisma.user.create({
+      data: {
+        nama: "Platform Admin",
+        username: "superadmin",
+        passwordHash,
+        role: "PLATFORM_ADMIN",
+        tenantId: null,
+      },
+    });
+  }
 
   await prisma.voucher.upsert({
     where: { kode: "TEMAN50" },
