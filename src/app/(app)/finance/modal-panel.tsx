@@ -83,6 +83,10 @@ export function ModalPanel() {
       toast.error("Pilih sumber dana untuk Penambahan Modal");
       return;
     }
+    if (tipe === "PENAMBAHAN" && (sumberDana === "PINJAMAN" || sumberDana === "INVESTOR")) {
+      toast.error("Pinjaman/Investor dicatat di menu Utang, bukan di Modal.");
+      return;
+    }
     setSaving(true);
     try {
       const res = await fetch("/api/finance/modal", {

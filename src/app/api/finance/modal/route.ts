@@ -80,6 +80,12 @@ export const POST = withOwnerFinance(async (user, req) => {
       return NextResponse.json({ error: "Tanggal tidak valid", type: "validation" }, { status: 400 });
     }
     if (tipe === "PENAMBAHAN") {
+      if (sumberDana === "PINJAMAN" || sumberDana === "INVESTOR") {
+        return NextResponse.json(
+          { error: "Pinjaman/Investor dicatat di menu Utang, bukan di Modal.", type: "validation" },
+          { status: 400 }
+        );
+      }
       if (!sumberDana || !(SUMBER_DANA_VALID as readonly string[]).includes(sumberDana)) {
         return NextResponse.json(
           { error: "Sumber dana wajib dipilih untuk Penambahan Modal", type: "validation" },

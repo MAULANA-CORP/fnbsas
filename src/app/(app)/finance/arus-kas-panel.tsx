@@ -10,6 +10,7 @@ import { StatCard } from "@/components/ui/stat-card";
 import { LoadingSkeleton } from "@/components/ui/empty-state";
 import { formatRupiah, formatTanggal } from "@/lib/utils";
 import { exportRowsToExcel } from "@/lib/export-excel";
+import { exportRowsToPdf } from "@/lib/export-pdf";
 import { PeriodOutletFilter, EXPORT_HINT } from "./period-outlet-filter";
 import { firstOfMonthStr, todayStr, type ArusKasResult, type OutletOption } from "./_lib";
 
@@ -74,6 +75,28 @@ export function ArusKasPanel({ outlets }: { outlets: OutletOption[] }) {
       ],
     });
     toast.success("File Excel Arus Kas diunduh");
+  }
+
+  async function handleExportPdf() {
+    const fresh = await load({ forExport: true });
+    if (!fresh) return;
+    exportRowsToPdf({
+      judul: "Arus Kas",
+      modul: "arus-kas",
+      columns: ["Komponen", "Nilai"],
+      rows: [
+        ["Pembayaran Piutang", formatRupiah(fresh.masuk.cicilanPiutang)],
+        ["Modal Masuk", formatRupiah(fresh.masuk.modalMasuk)],
+        ["Pinjaman / Investor", formatRupiah(fresh.masuk.pinjamanMasuk ?? 0)],
+        ["Total Kas Masuk", formatRupiah(fresh.masuk.total)],
+        ["Pembayaran Utang", formatRupiah(fresh.keluar.cicilanUtang)],
+        ["Beban Operasional", formatRupiah(fresh.keluar.pengeluaran)],
+        ["Biaya produksi", formatRupiah(fresh.keluar.biayaProduksi ?? 0)],
+        ["Prive", formatRupiah(fresh.keluar.prive)],
+        ["Arus Kas Bersih", formatRupiah(fresh.arusKasBersih)],
+      ],
+    });
+    toast.success("PDF Arus Kas diunduh");
   }
 
   return (
@@ -159,10 +182,14 @@ export function ArusKasPanel({ outlets }: { outlets: OutletOption[] }) {
             </Card>
           </div>
 
-          <div className="mt-4 flex justify-end">
+          <div className="mt-4 flex justify-end gap-2">
             <Button size="sm" variant="secondary" onClick={handleExport}>
               <Download className="h-4 w-4" />
-              Export Excel
+              Excel
+            </Button>
+            <Button size="sm" variant="secondary" onClick={handleExportPdf}>
+              <Download className="h-4 w-4" />
+              PDF
             </Button>
           </div>
           <p className="mt-2 text-right text-xs text-gray-500 dark:text-gray-500">{EXPORT_HINT}</p>

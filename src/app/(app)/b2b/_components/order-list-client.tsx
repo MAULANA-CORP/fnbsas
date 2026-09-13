@@ -12,6 +12,7 @@ import { SearchableSelect } from "@/components/ui/searchable-select";
 import { DataCard } from "@/components/ui/data-card";
 import { EmptyState, LoadingSkeleton } from "@/components/ui/empty-state";
 import { formatRupiah, formatTanggal } from "@/lib/utils";
+import { PaginationBar } from "@/components/ui/pagination-bar";
 import { OrderStatusBadge, STATUS_FILTERS } from "./order-status-badge";
 import type { OrderB2BDTO } from "./types";
 
@@ -20,6 +21,9 @@ export function OrderListClient({ role }: { role: "OWNER" | "FINANCE" | "SALES" 
   const [loading, setLoading] = React.useState(true);
   const [status, setStatus] = React.useState<string>("SEMUA");
   const [q, setQ] = React.useState("");
+  const [page, setPage] = React.useState(1);
+  const [total, setTotal] = React.useState(0);
+  const pageSize = 50;
 
   const bisaBuatOrder = role === "OWNER" || role === "SALES";
 
@@ -29,6 +33,8 @@ export function OrderListClient({ role }: { role: "OWNER" | "FINANCE" | "SALES" 
       const params = new URLSearchParams();
       if (status !== "SEMUA") params.set("status", status);
       if (q.trim()) params.set("q", q.trim());
+      params.set("page", String(page));
+      params.set("pageSize", String(pageSize));
       const res = await fetch(`/api/b2b/orders?${params.toString()}`);
       const data = await res.json();
       if (!res.ok) {
@@ -36,11 +42,16 @@ export function OrderListClient({ role }: { role: "OWNER" | "FINANCE" | "SALES" 
         return;
       }
       setOrders(data.data ?? []);
+      setTotal(Number(data.total ?? 0));
     } catch {
       toast.error("Tidak bisa terhubung ke server");
     } finally {
       setLoading(false);
     }
+  }, [status, q, page]);
+
+  React.useEffect(() => {
+    setPage(1);
   }, [status, q]);
 
   React.useEffect(() => {
@@ -115,6 +126,7 @@ export function OrderListClient({ role }: { role: "OWNER" | "FINANCE" | "SALES" 
             ))}
           </div>
         )}
+        <PaginationBar page={page} pageSize={pageSize} total={total} onPageChange={setPage} />
       </Card>
     </div>
   );

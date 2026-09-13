@@ -9,6 +9,7 @@ import { StatCard } from "@/components/ui/stat-card";
 import { LoadingSkeleton } from "@/components/ui/empty-state";
 import { formatRupiah } from "@/lib/utils";
 import { exportRowsToExcel } from "@/lib/export-excel";
+import { exportRowsToPdf } from "@/lib/export-pdf";
 import { AsOfOutletFilter, EXPORT_HINT } from "./period-outlet-filter";
 import { todayStr, type NeracaResult, type OutletOption } from "./_lib";
 
@@ -73,6 +74,26 @@ export function NeracaPanel({ outlets }: { outlets: OutletOption[] }) {
       ],
     });
     toast.success("File Excel Neraca diunduh");
+  }
+
+  async function handleExportPdf() {
+    const fresh = await load({ forExport: true });
+    if (!fresh) return;
+    exportRowsToPdf({
+      judul: "Neraca",
+      modul: "neraca",
+      columns: ["Komponen", "Nilai"],
+      rows: [
+        ["Kas", formatRupiah(fresh.aset.kas)],
+        ["Piutang Belum Lunas", formatRupiah(fresh.aset.piutangBelumLunas)],
+        ["Nilai Stok", formatRupiah(fresh.aset.nilaiStok)],
+        ["Total Aset", formatRupiah(fresh.aset.total)],
+        ["Utang Belum Lunas", formatRupiah(fresh.kewajiban.utangBelumLunas)],
+        ["Modal", formatRupiah(fresh.modal.total)],
+        ["Selisih", formatRupiah(fresh.selisih)],
+      ],
+    });
+    toast.success("PDF Neraca diunduh");
   }
 
   const selisihSignifikan = data ? Math.abs(data.selisih) > 1 : false;
@@ -150,10 +171,14 @@ export function NeracaPanel({ outlets }: { outlets: OutletOption[] }) {
             </div>
           </div>
 
-          <div className="mt-4 flex justify-end">
+          <div className="mt-4 flex justify-end gap-2">
             <Button size="sm" variant="secondary" onClick={handleExport}>
               <Download className="h-4 w-4" />
-              Export Excel
+              Excel
+            </Button>
+            <Button size="sm" variant="secondary" onClick={handleExportPdf}>
+              <Download className="h-4 w-4" />
+              PDF
             </Button>
           </div>
           <p className="mt-2 text-right text-xs text-gray-500 dark:text-gray-500">{EXPORT_HINT}</p>

@@ -12,6 +12,7 @@ import { StatCard } from "@/components/ui/stat-card";
 import { EmptyState, LoadingSkeleton } from "@/components/ui/empty-state";
 import { cn, formatRupiah, formatTanggal } from "@/lib/utils";
 import { exportRowsToExcel } from "@/lib/export-excel";
+import { exportRowsToPdf } from "@/lib/export-pdf";
 
 interface Baris {
   id: string;
@@ -116,9 +117,32 @@ export function LaporanPiutangClient() {
                   onChange={(v) => setFilterOverdue(v ?? "ALL")}
                 />
               </div>
-              <Button size="sm" variant="secondary" onClick={handleExport} disabled={data.baris.length === 0}>
-                <Download className="h-4 w-4" /> Export Excel
-              </Button>
+              <div className="flex gap-2">
+                <Button size="sm" variant="secondary" onClick={handleExport} disabled={data.baris.length === 0}>
+                  <Download className="h-4 w-4" /> Excel
+                </Button>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  disabled={data.baris.length === 0}
+                  onClick={() => {
+                    exportRowsToPdf({
+                      judul: "Piutang Jatuh Tempo",
+                      modul: "piutang",
+                      columns: ["Nomor", "Pihak", "Sisa", "Jatuh Tempo"],
+                      rows: data.baris.map((r) => [
+                        r.nomor,
+                        r.pihakNama,
+                        formatRupiah(r.sisa),
+                        formatTanggal(r.jatuhTempo),
+                      ]),
+                    });
+                    toast.success("PDF diunduh");
+                  }}
+                >
+                  <Download className="h-4 w-4" /> PDF
+                </Button>
+              </div>
             </div>
 
             {data.baris.length === 0 ? (

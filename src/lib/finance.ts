@@ -585,42 +585,59 @@ export async function hitungSeriHarianArusKas(filter: PeriodeFilter): Promise<Ar
   const maxEnd = new Date(start.getTime() + 92 * 24 * 60 * 60 * 1000);
   const actualEnd = end > maxEnd ? maxEnd : end;
 
-  const [pembayaranPiutang, modalList, cicilanUtang, pengeluaranList, pinjamanList] = await Promise.all([
+  const [pembayaranPiutang, modalList, cicilanUtang, pengeluaranList, pinjamanList, biayaProduksiList] =
+    await Promise.all([
     prisma.pembayaran.findMany({
       where: {
         tipe: "PIUTANG",
         tanggal: { gte: start, lte: actualEnd },
-        ...(outletId ? { piutang: { OR: [{ orderPOS: { outletId } }, { orderB2B: { outletId } }] } } : {}),
+        piutang: {
+          OR: [
+            { orderPOS: { status: { not: "BATAL" }, ...(outletId ? { outletId } : {}) } },
+            { orderB2B: { status: { not: "BATAL" }, ...(outletId ? { outletId } : {}) } },
+          ],
+        },
       },
       select: { tanggal: true, jumlah: true },
     }),
-    prisma.modal.findMany({
-      where: { tanggal: { gte: start, lte: actualEnd } },
-      select: { tanggal: true, jumlah: true, tipe: true },
-    }),
+    outletId
+      ? Promise.resolve([])
+      : prisma.modal.findMany({
+          where: { tanggal: { gte: start, lte: actualEnd } },
+          select: { tanggal: true, jumlah: true, tipe: true, sumberDana: true },
+        }),
     prisma.pembayaran.findMany({
       where: {
         tipe: "UTANG",
         tanggal: { gte: start, lte: actualEnd },
-        ...(outletId
-          ? { utang: { OR: [{ pembelian: { outletId } }, { pembelianId: null }] } }
-          : {}),
+        ...(outletId ? { utang: { pembelian: { outletId } } } : {}),
       },
       select: { tanggal: true, jumlah: true },
     }),
     prisma.pengeluaran.findMany({
       where: {
         tanggal: { gte: start, lte: actualEnd },
-        ...(outletId ? { OR: [{ outletId }, { outletId: null }] } : {}),
+        ...(outletId ? { outletId } : {}),
       },
       select: { tanggal: true, jumlah: true },
     }),
-    prisma.utang.findMany({
+    outletId
+      ? Promise.resolve([])
+      : prisma.utang.findMany({
+          where: {
+            sumber: { in: ["PINJAMAN", "INVESTOR"] },
+            createdAt: { gte: start, lte: actualEnd },
+          },
+          select: { createdAt: true, totalUtang: true },
+        }),
+    prisma.outputBiayaLain.findMany({
       where: {
-        sumber: { in: ["PINJAMAN", "INVESTOR"] },
-        createdAt: { gte: start, lte: actualEnd },
+        output: {
+          tanggal: { gte: start, lte: actualEnd },
+          ...(outletId ? { outletId } : {}),
+        },
       },
-      select: { createdAt: true, totalUtang: true },
+      select: { jumlah: true, output: { select: { tanggal: true } } },
     }),
   ]);
 
@@ -635,10 +652,12 @@ export async function hitungSeriHarianArusKas(filter: PeriodeFilter): Promise<Ar
 
   for (const p of pembayaranPiutang) add(p.tanggal, "masuk", Number(p.jumlah));
   for (const m of modalList) {
-    if (m.tipe === "MODAL_AWAL" || m.tipe === "PENAMBAHAN") add(m.tanggal, "masuk", Number(m.jumlah));
-    else if (m.tipe === "PRIVE") add(m.tanggal, "keluar", Number(m.jumlah));
+    if ((m.tipe === "MODAL_AWAL" || m.tipe === "PENAMBAHAN") && m.sumberDana !== "PINJAMAN" && m.sumberDana !== "INVESTOR") {
+      add(m.tanggal, "masuk", Number(m.jumlah));
+    } else if (m.tipe === "PRIVE") add(m.tanggal, "keluar", Number(m.jumlah));
   }
   for (const u of pinjamanList) add(u.createdAt, "masuk", Number(u.totalUtang));
+  for (const b of biayaProduksiList) add(b.output.tanggal, "keluar", Number(b.jumlah));
   for (const p of cicilanUtang) add(p.tanggal, "keluar", Number(p.jumlah));
   for (const p of pengeluaranList) add(p.tanggal, "keluar", Number(p.jumlah));
 

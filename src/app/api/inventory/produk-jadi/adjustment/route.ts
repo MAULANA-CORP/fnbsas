@@ -10,6 +10,7 @@ export const POST = withOwnerProduksi(async (user, req) => {
     const tipe = body.tipe === "IN" || body.tipe === "OUT" ? body.tipe : null;
     const qty = Number(body.qty);
     const alasan = typeof body.alasan === "string" ? body.alasan.trim() : "";
+    const outletId = typeof body.outletId === "string" && body.outletId ? body.outletId : user.outletId;
 
     if (!produkJadiId) return NextResponse.json({ error: "Produk jadi wajib dipilih." }, { status: 400 });
     if (!tipe) return NextResponse.json({ error: "Tipe penyesuaian wajib IN atau OUT." }, { status: 400 });
@@ -50,6 +51,7 @@ export const POST = withOwnerProduksi(async (user, req) => {
           tipe,
           qty,
           sumber: "ADJUSTMENT",
+          outletId: outletId || null,
           keterangan: alasan,
         },
       });

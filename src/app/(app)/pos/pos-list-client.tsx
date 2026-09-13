@@ -12,6 +12,8 @@ import { StatusBadge } from "@/components/ui/badge";
 import { EmptyState, LoadingSkeleton } from "@/components/ui/empty-state";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { formatRupiah, formatTanggalJam } from "@/lib/utils";
+import { PaginationBar } from "@/components/ui/pagination-bar";
+import { Badge } from "@/components/ui/badge";
 import {
   METODE_BAYAR_LABEL,
   METODE_BAYAR_OPTIONS,
@@ -30,6 +32,9 @@ export function PosListClient({ canCreate }: { canCreate: boolean }) {
   const [outletId, setOutletId] = React.useState<string | null>(null);
   const [filterDari, setFilterDari] = React.useState("");
   const [filterSampai, setFilterSampai] = React.useState("");
+  const [page, setPage] = React.useState(1);
+  const [total, setTotal] = React.useState(0);
+  const pageSize = 50;
 
   const loadOrders = React.useCallback(async () => {
     setLoading(true);
@@ -41,6 +46,8 @@ export function PosListClient({ canCreate }: { canCreate: boolean }) {
       if (outletId) params.set("outletId", outletId);
       if (filterDari) params.set("dari", filterDari);
       if (filterSampai) params.set("sampai", filterSampai);
+      params.set("page", String(page));
+      params.set("pageSize", String(pageSize));
 
       const res = await fetch(`/api/pos?${params.toString()}`);
       const data = await res.json();
@@ -49,11 +56,16 @@ export function PosListClient({ canCreate }: { canCreate: boolean }) {
         return;
       }
       setOrders(data.orders ?? []);
+      setTotal(Number(data.total ?? 0));
     } catch {
       toast.error("Tidak bisa terhubung ke server");
     } finally {
       setLoading(false);
     }
+  }, [search, status, metodeBayar, outletId, filterDari, filterSampai, page]);
+
+  React.useEffect(() => {
+    setPage(1);
   }, [search, status, metodeBayar, outletId, filterDari, filterSampai]);
 
   React.useEffect(() => {
@@ -160,7 +172,7 @@ export function PosListClient({ canCreate }: { canCreate: boolean }) {
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="font-medium text-gray-900 dark:text-gray-50">{order.nomor}</span>
-                    <StatusBadge status={order.statusBayar} />
+                    {order.status === "BATAL" ? <Badge tone="red">Batal</Badge> : <StatusBadge status={order.statusBayar} />}
                   </div>
                   <p className="mt-0.5 truncate text-sm text-gray-600 dark:text-gray-400">
                     {order.customer?.nama ?? "-"} &middot; {order.outlet?.nama ?? "-"}
@@ -179,6 +191,7 @@ export function PosListClient({ canCreate }: { canCreate: boolean }) {
           ))}
         </div>
       )}
+      <PaginationBar page={page} pageSize={pageSize} total={total} onPageChange={setPage} />
     </div>
   );
 }

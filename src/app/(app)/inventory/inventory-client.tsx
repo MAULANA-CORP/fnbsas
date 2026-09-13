@@ -113,6 +113,8 @@ export function InventoryClient({ role }: { role: Role }) {
   const [loadingStok, setLoadingStok] = React.useState(true);
   const [stokFilter, setStokFilter] = React.useState<string>("ALL");
   const [q, setQ] = React.useState("");
+  const [outlets, setOutlets] = React.useState<{ id: string; nama: string }[]>([]);
+  const [outletId, setOutletId] = React.useState<string | null>(null);
 
   const muatStok = React.useCallback(async () => {
     if (!activeKategori) return;
@@ -121,6 +123,7 @@ export function InventoryClient({ role }: { role: Role }) {
       const params = new URLSearchParams();
       if (stokFilter === "LOW") params.set("lowStock", "true");
       if (q.trim()) params.set("q", q.trim());
+      if (outletId) params.set("outletId", outletId);
       const res = await fetch(`${activeKategori.apiBase}?${params.toString()}`);
       const json = await res.json();
       if (!res.ok) {
@@ -134,11 +137,18 @@ export function InventoryClient({ role }: { role: Role }) {
       setLoadingStok(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeKategori?.apiBase, stokFilter, q]);
+  }, [activeKategori?.apiBase, stokFilter, q, outletId]);
 
   React.useEffect(() => {
     if (view === "stok") muatStok();
   }, [view, muatStok]);
+
+  React.useEffect(() => {
+    fetch("/api/finance/outlets")
+      .then((r) => r.json())
+      .then((d) => setOutlets(d.outlets ?? []))
+      .catch(() => {});
+  }, []);
 
   // -- data riwayat --
   const [movementData, setMovementData] = React.useState<MovementItem[] | null>(null);
@@ -228,6 +238,7 @@ export function InventoryClient({ role }: { role: Role }) {
           tipe: adjustTipe,
           qty: Number(adjustQty),
           alasan: adjustAlasan.trim(),
+          outletId: outletId || undefined,
         }),
       });
       const json = await res.json();
@@ -320,6 +331,15 @@ export function InventoryClient({ role }: { role: Role }) {
               ]}
               value={stokFilter}
               onChange={(v) => setStokFilter(v ?? "ALL")}
+            />
+            <SearchableSelect
+              placeholder="Semua Outlet (total toko)"
+              options={[
+                { value: "", label: "Semua Outlet (total toko)" },
+                ...outlets.map((o) => ({ value: o.id, label: o.nama })),
+              ]}
+              value={outletId}
+              onChange={(v) => setOutletId(v || null)}
             />
           </div>
 

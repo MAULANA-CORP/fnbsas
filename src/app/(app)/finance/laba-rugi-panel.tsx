@@ -9,6 +9,7 @@ import { StatCard } from "@/components/ui/stat-card";
 import { LoadingSkeleton } from "@/components/ui/empty-state";
 import { formatRupiah } from "@/lib/utils";
 import { exportRowsToExcel } from "@/lib/export-excel";
+import { exportRowsToPdf } from "@/lib/export-pdf";
 import { PeriodOutletFilter, EXPORT_HINT } from "./period-outlet-filter";
 import { firstOfMonthStr, todayStr, type LabaRugiResult, type OutletOption } from "./_lib";
 
@@ -73,6 +74,26 @@ export function LabaRugiPanel({ outlets }: { outlets: OutletOption[] }) {
     toast.success("File Excel Laba Rugi diunduh");
   }
 
+  async function handleExportPdf() {
+    const fresh = await load({ forExport: true });
+    if (!fresh) return;
+    exportRowsToPdf({
+      judul: "Laba Rugi",
+      modul: "laba-rugi",
+      columns: ["Komponen", "Nilai"],
+      rows: [
+        ["Penjualan POS", formatRupiah(fresh.totalPenjualanPOS)],
+        ["Penjualan B2B", formatRupiah(fresh.totalPenjualanB2B)],
+        ["Total Penjualan", formatRupiah(fresh.totalPenjualan)],
+        ["HPP", formatRupiah(fresh.hpp)],
+        ["Laba Kotor", formatRupiah(fresh.labaKotor)],
+        ["Beban Operasional", formatRupiah(fresh.bebanOperasional)],
+        ["Laba Bersih", formatRupiah(fresh.labaBersih)],
+      ],
+    });
+    toast.success("PDF Laba Rugi diunduh");
+  }
+
   return (
     <div>
       <PeriodOutletFilter
@@ -120,6 +141,10 @@ export function LabaRugiPanel({ outlets }: { outlets: OutletOption[] }) {
                 <Button size="sm" variant="secondary" onClick={handleExport}>
                   <Download className="h-4 w-4" />
                   Excel
+                </Button>
+                <Button size="sm" variant="secondary" onClick={handleExportPdf}>
+                  <Download className="h-4 w-4" />
+                  PDF
                 </Button>
               </div>
             </CardHeader>

@@ -8,6 +8,7 @@ export interface OrderPOSListItem {
   outletId: string;
   userId: string;
   metodeBayar: "CASH" | "TRANSFER_QRIS" | "KREDIT";
+  status?: "AKTIF" | "BATAL";
   statusBayar: "LUNAS" | "PARSIAL" | "BELUM_BAYAR";
   tanggalJatuhTempo: string | null;
   subtotal: number;

@@ -7,6 +7,7 @@ import { ModalPanel } from "./modal-panel";
 import { ArusKasPanel } from "./arus-kas-panel";
 import { LabaRugiPanel } from "./laba-rugi-panel";
 import { NeracaPanel } from "./neraca-panel";
+import { TutupBukuPanel } from "./tutup-buku-panel";
 import type { OutletOption } from "./_lib";
 
 export function FinanceClient() {
@@ -33,6 +34,7 @@ export function FinanceClient() {
           <TabsTrigger value="arus-kas">Arus Kas</TabsTrigger>
           <TabsTrigger value="laba-rugi">Laba Rugi</TabsTrigger>
           <TabsTrigger value="neraca">Neraca</TabsTrigger>
+          <TabsTrigger value="tutup-buku">Tutup Buku</TabsTrigger>
         </TabsList>
 
         <TabsContent value="modal">
@@ -46,6 +48,9 @@ export function FinanceClient() {
         </TabsContent>
         <TabsContent value="neraca">
           <NeracaPanel outlets={outlets} />
+        </TabsContent>
+        <TabsContent value="tutup-buku">
+          <TutupBukuPanel />
         </TabsContent>
       </Tabs>
     </div>

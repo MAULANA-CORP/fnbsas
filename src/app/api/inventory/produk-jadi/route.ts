@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { withRole, apiError } from "@/lib/api-helpers";
 import { getPrisma } from "@/lib/prisma";
+import { petaStokOutlet } from "@/lib/stok-outlet";
 
 /** GET /api/inventory/produk-jadi — stok berjalan Produk Jadi (filter: q, lowStock=true) */
 export const GET = withRole(["OWNER", "FINANCE", "SALES", "PRODUKSI"], async (_user, req) => {
@@ -9,6 +10,8 @@ export const GET = withRole(["OWNER", "FINANCE", "SALES", "PRODUKSI"], async (_u
     const { searchParams } = new URL(req.url);
     const q = searchParams.get("q")?.trim();
     const lowStockOnly = searchParams.get("lowStock") === "true";
+    const outletId = searchParams.get("outletId")?.trim() || null;
+    const peta = outletId ? await petaStokOutlet("produkJadi", outletId) : null;
 
     const items = await prisma.produkJadi.findMany({ take: 200, where: q ? { nama: { contains: q, mode: "insensitive" } } : undefined,
       orderBy: { nama: "asc" },
@@ -16,7 +19,7 @@ export const GET = withRole(["OWNER", "FINANCE", "SALES", "PRODUKSI"], async (_u
 
     const data = items
       .map((i) => {
-        const stok = Number(i.stok);
+        const stok = peta ? (peta.get(i.id) ?? 0) : Number(i.stok);
         const stokMinimum = Number(i.stokMinimum);
         return {
           id: i.id,

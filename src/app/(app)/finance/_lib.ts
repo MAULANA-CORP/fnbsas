@@ -32,8 +32,6 @@ export const TIPE_MODAL_LABEL: Record<string, string> = {
 
 export const SUMBER_DANA_OPTIONS = [
   { value: "UANG_SENDIRI", label: "Uang Sendiri" },
-  { value: "PINJAMAN", label: "Pinjaman" },
-  { value: "INVESTOR", label: "Investor" },
 ];
 
 export const SUMBER_DANA_LABEL: Record<string, string> = {

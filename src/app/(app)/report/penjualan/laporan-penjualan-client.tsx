@@ -13,6 +13,7 @@ import { StatCard } from "@/components/ui/stat-card";
 import { EmptyState, LoadingSkeleton } from "@/components/ui/empty-state";
 import { formatRupiah, formatTanggal } from "@/lib/utils";
 import { exportRowsToExcel } from "@/lib/export-excel";
+import { exportRowsToPdf } from "@/lib/export-pdf";
 
 interface Baris {
   id: string;
@@ -136,9 +137,33 @@ export function LaporanPenjualanClient() {
 
           <Card>
             <div className="mb-3 flex justify-end">
-              <Button size="sm" variant="secondary" onClick={handleExport} disabled={data.baris.length === 0}>
-                <Download className="h-4 w-4" /> Export Excel
-              </Button>
+              <div className="flex gap-2">
+                <Button size="sm" variant="secondary" onClick={handleExport} disabled={data.baris.length === 0}>
+                  <Download className="h-4 w-4" /> Excel
+                </Button>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  disabled={data.baris.length === 0}
+                  onClick={() => {
+                    exportRowsToPdf({
+                      judul: "Laporan Penjualan",
+                      modul: "penjualan",
+                      columns: ["Tanggal", "Jenis", "Nomor", "Pihak", "Total"],
+                      rows: data.baris.map((r) => [
+                        formatTanggal(r.tanggal),
+                        r.jenis,
+                        r.nomor,
+                        r.pihak,
+                        formatRupiah(r.total),
+                      ]),
+                    });
+                    toast.success("PDF diunduh");
+                  }}
+                >
+                  <Download className="h-4 w-4" /> PDF
+                </Button>
+              </div>
             </div>
             {data.baris.length === 0 ? (
               <EmptyState title="Tidak ada transaksi pada periode ini" />
