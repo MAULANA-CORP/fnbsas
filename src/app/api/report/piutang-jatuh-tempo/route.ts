@@ -10,7 +10,7 @@ export const GET = withOwnerFinance(async (user, req) => {
     const { searchParams } = new URL(req.url);
     const hanyaOverdue = searchParams.get("hanyaOverdue") === "1";
 
-    const list = await getPrisma().piutang.findMany({ take: 200, where: { status: { not: "LUNAS" } },
+    const list = await getPrisma().piutang.findMany({ where: { status: { not: "LUNAS" } },
       include: {
         orderPOS: { select: { nomor: true, outlet: { select: { nama: true } } } },
         orderB2B: { select: { nomor: true, outlet: { select: { nama: true } } } },

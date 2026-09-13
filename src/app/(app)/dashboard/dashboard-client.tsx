@@ -120,7 +120,8 @@ export function DashboardClient({ role }: { role: Role }) {
   React.useEffect(() => {
     if (role === "OWNER" || role === "FINANCE") {
       fetch("/api/finance/outlets").then(r => r.json()).then(d => {
-        if (Array.isArray(d.data)) setOutlets(d.data);
+        if (Array.isArray(d.outlets)) setOutlets(d.outlets);
+        else if (Array.isArray(d.data)) setOutlets(d.data);
       }).catch(console.error);
     }
   }, [role]);

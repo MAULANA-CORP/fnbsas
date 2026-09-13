@@ -58,7 +58,7 @@ export function DataCard({
           <span className="text-right text-sm font-semibold text-gray-900 dark:text-gray-50">{amount}</span>
         )}
         {trailing}
-        {(href || onClick) && <ChevronRight className="h-4 w-4 text-gray-400" />}
+        {(href || onClick) && <ChevronRight className="h-4 w-4 text-gray-500 dark:text-gray-400" />}
       </div>
     </>
   );

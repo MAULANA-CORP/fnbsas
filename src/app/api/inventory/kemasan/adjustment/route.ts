@@ -24,16 +24,25 @@ export const POST = withOwnerProduksi(async (user, req) => {
       const item = await tx.kemasan.findUnique({ where: { id: kemasanId } });
       if (!item) throw new Error("Kemasan tidak ditemukan.");
 
-      if (tipe === "OUT" && Number(item.stok) < qty) {
-        throw new Error(
-          `Stok kemasan ${item.nama} tidak cukup untuk pengurangan (tersedia ${Number(item.stok)} ${item.satuan}).`
-        );
+      if (tipe === "OUT") {
+        const res = await tx.kemasan.updateMany({
+          where: { id: kemasanId, stok: { gte: qty } },
+          data: { stok: { decrement: qty } },
+        });
+        if (res.count === 0) {
+          throw new Error(
+            `Stok kemasan ${item.nama} tidak cukup untuk pengurangan (tersedia ${Number(item.stok)} ${item.satuan}).`
+          );
+        }
+      } else {
+        await tx.kemasan.update({
+          where: { id: kemasanId },
+          data: { stok: { increment: qty } },
+        });
       }
 
-      const updated = await tx.kemasan.update({
-        where: { id: kemasanId },
-        data: { stok: tipe === "IN" ? { increment: qty } : { decrement: qty } },
-      });
+      const updated = await tx.kemasan.findUnique({ where: { id: kemasanId } });
+      if (!updated) throw new Error("Kemasan tidak ditemukan.");
 
       await tx.stokMovementKemasan.create({
         data: {

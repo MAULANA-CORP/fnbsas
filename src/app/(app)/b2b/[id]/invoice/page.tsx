@@ -1,6 +1,7 @@
 import { redirect, notFound } from "next/navigation";
 import { getCurrentUser } from "@/lib/api-helpers";
 import { getPrisma } from "@/lib/prisma";
+import { runWithTenant } from "@/lib/tenant";
 import { formatRupiah, formatTanggal } from "@/lib/utils";
 import { PrintButton } from "./print-button";
 
@@ -11,17 +12,21 @@ export default async function InvoiceB2BPage({ params }: { params: Promise<{ id:
     redirect("/b2b");
   }
 
+  if (!user.tenantId) redirect("/login");
+
   const { id } = await params;
-  const order = await getPrisma().orderB2B.findUnique({
-    where: { id },
-    include: {
-      agen: true,
-      outlet: true,
-      items: { include: { produkJadi: true } },
-      invoice: true,
-      suratJalan: true,
-    },
-  });
+  const order = await runWithTenant(user.tenantId, () =>
+    getPrisma().orderB2B.findUnique({
+      where: { id },
+      include: {
+        agen: true,
+        outlet: true,
+        items: { include: { produkJadi: true } },
+        invoice: true,
+        suratJalan: true,
+      },
+    })
+  );
 
   if (!order || !order.invoice) {
     notFound();

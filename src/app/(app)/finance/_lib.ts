@@ -62,6 +62,7 @@ export interface ArusKasResult {
     dpKreditAwal: number;
     cicilanPiutang: number;
     modalMasuk: number;
+    pinjamanMasuk: number;
     total: number;
   };
   keluar: {

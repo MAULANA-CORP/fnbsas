@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getPrisma } from "@/lib/prisma";
 import { withAuth, withOwner, apiError, catatAudit } from "@/lib/api-helpers";
+import { catatPerubahanStokMaster } from "@/lib/stok-awal";
 
 function serialize(item: {
   id: string;
@@ -86,6 +87,15 @@ export const POST = withOwner(async (user, req) => {
         stok: Number(body.stok ?? 0),
         stokMinimum: Number(body.stokMinimum ?? 0),
       },
+    });
+
+    await catatPerubahanStokMaster(getPrisma(), {
+      jenis: "produkJadi",
+      id: item.id,
+      stokLama: 0,
+      stokBaru: Number(item.stok),
+      tenantId: user.tenantId,
+      keterangan: `Stok awal ${item.nama}`,
     });
 
     await catatAudit({

@@ -4,7 +4,7 @@ import * as React from "react";
 import { toast } from "sonner";
 import { Download, AlertTriangle } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge, StatusBadge } from "@/components/ui/badge";
@@ -103,15 +103,19 @@ export function LaporanPiutangClient() {
 
           <Card>
             <div className="mb-3 flex flex-wrap items-center justify-between gap-4">
-              <Select value={filterOverdue} onValueChange={setFilterOverdue}>
-                <SelectTrigger className="w-full sm:w-[250px] bg-white dark:bg-zinc-900">
-                  <SelectValue placeholder="Semua Piutang" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="ALL">Semua Piutang</SelectItem>
-                  <SelectItem value="OVERDUE_30">Overdue &gt; 30 Hari</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="w-full sm:w-[250px]">
+                <SearchableSelect
+                  placeholder="Semua Piutang"
+                  searchPlaceholder="Cari filter..."
+                  emptyText="Tidak ada opsi"
+                  options={[
+                    { value: "ALL", label: "Semua Piutang" },
+                    { value: "OVERDUE_30", label: "Overdue > 30 Hari" },
+                  ]}
+                  value={filterOverdue}
+                  onChange={(v) => setFilterOverdue(v ?? "ALL")}
+                />
+              </div>
               <Button size="sm" variant="secondary" onClick={handleExport} disabled={data.baris.length === 0}>
                 <Download className="h-4 w-4" /> Export Excel
               </Button>

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { withRole, apiError } from "@/lib/api-helpers";
 import { getPrisma } from "@/lib/prisma";
+import { parseTanggalAkhir, parseTanggalAwal } from "@/lib/period";
 
 /** GET /api/inventory/bahan-baku/movement — riwayat pergerakan stok Bahan Baku */
 export const GET = withRole(["OWNER", "FINANCE", "PRODUKSI"], async (_user, req) => {
@@ -19,8 +20,8 @@ export const GET = withRole(["OWNER", "FINANCE", "PRODUKSI"], async (_user, req)
     if (sumber) where.sumber = sumber;
     if (dari || sampai) {
       const rentang: Record<string, Date> = {};
-      if (dari) rentang.gte = new Date(dari);
-      if (sampai) rentang.lte = new Date(`${sampai}T23:59:59`);
+      if (dari) rentang.gte = parseTanggalAwal(dari) ?? new Date(dari);
+      if (sampai) rentang.lte = parseTanggalAkhir(sampai) ?? new Date(`${sampai}T23:59:59.999+07:00`);
       where.tanggal = rentang;
     }
 

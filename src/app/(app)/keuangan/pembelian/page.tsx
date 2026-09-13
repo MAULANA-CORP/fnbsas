@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/api-helpers";
 import { getPrisma } from "@/lib/prisma";
+import { runWithTenant } from "@/lib/tenant";
 import { PembelianClient } from "./_components/pembelian-client";
 
 // Halaman Catat Pembelian / Utang Baru — OWNER & FINANCE saja (selaras dengan tab Utang).
@@ -11,26 +12,30 @@ export default async function PembelianPage() {
   if (!user) redirect("/login");
   if (!["OWNER", "FINANCE"].includes(user.role)) redirect("/keuangan/utang-piutang");
 
+  if (!user.tenantId) redirect("/login");
+
   const prisma = getPrisma();
-  const [suppliers, bahanBaku, kemasan, outlets] = await Promise.all([
-    prisma.supplier.findMany({
-      select: { id: true, nama: true, kontak: true, alamat: true },
-      orderBy: { nama: "asc" },
-    }),
-    prisma.bahanBaku.findMany({
-      select: { id: true, nama: true, satuan: true },
-      orderBy: { nama: "asc" },
-    }),
-    prisma.kemasan.findMany({
-      select: { id: true, nama: true, satuan: true },
-      orderBy: { nama: "asc" },
-    }),
-    prisma.outlet.findMany({
-      where: { isActive: true },
-      select: { id: true, nama: true },
-      orderBy: { nama: "asc" },
-    }),
-  ]);
+  const [suppliers, bahanBaku, kemasan, outlets] = await runWithTenant(user.tenantId, () =>
+    Promise.all([
+      prisma.supplier.findMany({
+        select: { id: true, nama: true, kontak: true, alamat: true },
+        orderBy: { nama: "asc" },
+      }),
+      prisma.bahanBaku.findMany({
+        select: { id: true, nama: true, satuan: true },
+        orderBy: { nama: "asc" },
+      }),
+      prisma.kemasan.findMany({
+        select: { id: true, nama: true, satuan: true },
+        orderBy: { nama: "asc" },
+      }),
+      prisma.outlet.findMany({
+        where: { isActive: true },
+        select: { id: true, nama: true },
+        orderBy: { nama: "asc" },
+      }),
+    ])
+  );
 
   return (
     <PembelianClient suppliers={suppliers} bahanBaku={bahanBaku} kemasan={kemasan} outlets={outlets} />

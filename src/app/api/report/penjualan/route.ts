@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getPrisma } from "@/lib/prisma";
 import { withOwnerFinance, catatAudit, apiError } from "@/lib/api-helpers";
 import { awalBulanIni, akhirHariIni, parseTanggalAwal, parseTanggalAkhir } from "@/lib/period";
+import type { Prisma } from "@/generated/prisma/client";
 
 // GET /api/report/penjualan?start&end&outletId — gabungan POS + B2B per periode
 export const GET = withOwnerFinance(async (user, req) => {
@@ -12,19 +13,26 @@ export const GET = withOwnerFinance(async (user, req) => {
     const outletId = searchParams.get("outletId") || undefined;
 
     const prisma = getPrisma();
-    const [orderPOS, orderB2B] = await Promise.all([
-      prisma.orderPOS.findMany({ take: 200, where: { createdAt: { gte: start, lte: end }, ...(outletId ? { outletId } : {}) },
+    const wherePOS: Prisma.OrderPOSWhereInput = {
+      createdAt: { gte: start, lte: end },
+      ...(outletId ? { outletId } : {}),
+    };
+    const whereB2B: Prisma.OrderB2BWhereInput = {
+      createdAt: { gte: start, lte: end },
+      status: { notIn: ["BATAL", "DRAFT"] },
+      ...(outletId ? { outletId } : {}),
+    };
+    const [orderPOS, orderB2B, aggPOS, aggB2B] = await Promise.all([
+      prisma.orderPOS.findMany({ take: 200, where: wherePOS,
         include: { customer: { select: { nama: true } }, outlet: { select: { nama: true } } },
         orderBy: { createdAt: "desc" },
       }),
-      prisma.orderB2B.findMany({ take: 200, where: {
-          createdAt: { gte: start, lte: end },
-          status: { not: "BATAL" },
-          ...(outletId ? { outletId } : {}),
-        },
+      prisma.orderB2B.findMany({ take: 200, where: whereB2B,
         include: { agen: { select: { nama: true } }, outlet: { select: { nama: true } } },
         orderBy: { createdAt: "desc" },
       }),
+      prisma.orderPOS.aggregate({ _sum: { total: true }, where: wherePOS }),
+      prisma.orderB2B.aggregate({ _sum: { total: true }, where: whereB2B }),
     ]);
 
     const baris = [
@@ -52,8 +60,8 @@ export const GET = withOwnerFinance(async (user, req) => {
       })),
     ].sort((a, b) => b.tanggal.getTime() - a.tanggal.getTime());
 
-    const totalPOS = orderPOS.reduce((s, o) => s + Number(o.total), 0);
-    const totalB2B = orderB2B.reduce((s, o) => s + Number(o.total), 0);
+    const totalPOS = Number(aggPOS._sum.total ?? 0);
+    const totalB2B = Number(aggB2B._sum.total ?? 0);
 
     if (searchParams.get("export") === "1") {
       await catatAudit({

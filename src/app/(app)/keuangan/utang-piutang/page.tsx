@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/api-helpers";
 import { getPrisma } from "@/lib/prisma";
+import { runWithTenant } from "@/lib/tenant";
 import { UtangPiutangClient } from "./_components/utang-piutang-client";
 
 // Halaman Utang & Piutang — 2 tab (Piutang selalu tampil ke OWNER/FINANCE/SALES,
@@ -11,11 +12,15 @@ export default async function UtangPiutangPage() {
   if (!user) redirect("/login");
   if (!["OWNER", "FINANCE", "SALES"].includes(user.role)) redirect("/dashboard");
 
-  const outlets = await getPrisma().outlet.findMany({
-    where: { isActive: true },
-    select: { id: true, nama: true },
-    orderBy: { nama: "asc" },
-  });
+  if (!user.tenantId) redirect("/login");
+
+  const outlets = await runWithTenant(user.tenantId, () =>
+    getPrisma().outlet.findMany({
+      where: { isActive: true },
+      select: { id: true, nama: true },
+      orderBy: { nama: "asc" },
+    })
+  );
 
   return <UtangPiutangClient role={user.role} outlets={outlets} />;
 }

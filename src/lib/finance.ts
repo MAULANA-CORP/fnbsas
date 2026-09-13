@@ -313,7 +313,7 @@ export async function hitungLabaRugi(filter: PeriodeFilter): Promise<LabaRugiRes
     prisma.orderB2B.findMany({
       where: {
         createdAt: { gte: start, lte: end },
-        status: { not: "BATAL" },
+        status: { notIn: ["BATAL", "DRAFT"] },
         ...(outletId ? { outletId } : {}),
       },
       select: { total: true },
@@ -328,7 +328,7 @@ export async function hitungLabaRugi(filter: PeriodeFilter): Promise<LabaRugiRes
       where: {
         orderB2B: {
           createdAt: { gte: start, lte: end },
-          status: { not: "BATAL" },
+          status: { notIn: ["BATAL", "DRAFT"] },
           ...(outletId ? { outletId } : {}),
         },
       },
@@ -394,6 +394,7 @@ export interface ArusKasResult {
     dpKreditAwal: number; // uang muka order Kredit saat dibuat
     cicilanPiutang: number; // Pembayaran tipe PIUTANG
     modalMasuk: number; // Modal MODAL_AWAL + PENAMBAHAN
+    pinjamanMasuk: number; // Utang PINJAMAN / INVESTOR (uang diterima saat dicatat)
     total: number;
   };
   keluar: {
@@ -415,7 +416,7 @@ export async function hitungArusKas(filter: PeriodeFilter): Promise<ArusKasResul
 
   // Kas masuk & kas keluar pembelian/utang terpusat dari tabel Pembayaran.
   // Pembelian kredit tidak menguras kas sampai ada pembayaran (tunai / DP / cicilan).
-  const [pembayaranPiutang, modalList, cicilanUtang, pengeluaranList] =
+  const [pembayaranPiutang, modalList, cicilanUtang, pengeluaranList, pinjamanList] =
     await Promise.all([
       prisma.pembayaran.findMany({
         where: {
@@ -446,6 +447,13 @@ export async function hitungArusKas(filter: PeriodeFilter): Promise<ArusKasResul
         },
         select: { jumlah: true },
       }),
+      prisma.utang.findMany({
+        where: {
+          sumber: { in: ["PINJAMAN", "INVESTOR"] },
+          createdAt: { gte: start, lte: end },
+        },
+        select: { totalUtang: true },
+      }),
     ]);
 
   const penjualanTunai = 0; // obsolete, now part of cicilanPiutang (pembayaran)
@@ -454,13 +462,14 @@ export async function hitungArusKas(filter: PeriodeFilter): Promise<ArusKasResul
   const modalMasuk = modalList
     .filter((m) => m.tipe === "MODAL_AWAL" || m.tipe === "PENAMBAHAN")
     .reduce((s, m) => s + Number(m.jumlah), 0);
+  const pinjamanMasuk = pinjamanList.reduce((s, u) => s + Number(u.totalUtang), 0);
   const prive = modalList.filter((m) => m.tipe === "PRIVE").reduce((s, m) => s + Number(m.jumlah), 0);
 
   const pembelianTotal = 0; // opsi A: kas keluar pembelian hanya via Pembayaran UTANG
   const cicilanUtangTotal = cicilanUtang.reduce((s, p) => s + Number(p.jumlah), 0);
   const pengeluaranTotal = pengeluaranList.reduce((s, p) => s + Number(p.jumlah), 0);
 
-  const masukTotal = penjualanTunai + dpKreditAwal + cicilanPiutangTotal + modalMasuk;
+  const masukTotal = penjualanTunai + dpKreditAwal + cicilanPiutangTotal + modalMasuk + pinjamanMasuk;
   const keluarTotal = pembelianTotal + cicilanUtangTotal + pengeluaranTotal + prive;
 
   return {
@@ -470,6 +479,7 @@ export async function hitungArusKas(filter: PeriodeFilter): Promise<ArusKasResul
       dpKreditAwal,
       cicilanPiutang: cicilanPiutangTotal,
       modalMasuk,
+      pinjamanMasuk,
       total: masukTotal,
     },
     keluar: {
@@ -501,7 +511,7 @@ export async function hitungSeriHarianArusKas(filter: PeriodeFilter): Promise<Ar
   const maxEnd = new Date(start.getTime() + 92 * 24 * 60 * 60 * 1000);
   const actualEnd = end > maxEnd ? maxEnd : end;
 
-  const [pembayaranPiutang, modalList, cicilanUtang, pengeluaranList] = await Promise.all([
+  const [pembayaranPiutang, modalList, cicilanUtang, pengeluaranList, pinjamanList] = await Promise.all([
     prisma.pembayaran.findMany({
       where: {
         tipe: "PIUTANG",
@@ -531,6 +541,13 @@ export async function hitungSeriHarianArusKas(filter: PeriodeFilter): Promise<Ar
       },
       select: { tanggal: true, jumlah: true },
     }),
+    prisma.utang.findMany({
+      where: {
+        sumber: { in: ["PINJAMAN", "INVESTOR"] },
+        createdAt: { gte: start, lte: actualEnd },
+      },
+      select: { createdAt: true, totalUtang: true },
+    }),
   ]);
 
   const mapHarian = new Map<string, { masuk: number; keluar: number }>();
@@ -547,6 +564,7 @@ export async function hitungSeriHarianArusKas(filter: PeriodeFilter): Promise<Ar
     if (m.tipe === "MODAL_AWAL" || m.tipe === "PENAMBAHAN") add(m.tanggal, "masuk", Number(m.jumlah));
     else if (m.tipe === "PRIVE") add(m.tanggal, "keluar", Number(m.jumlah));
   }
+  for (const u of pinjamanList) add(u.createdAt, "masuk", Number(u.totalUtang));
   for (const p of cicilanUtang) add(p.tanggal, "keluar", Number(p.jumlah));
   for (const p of pengeluaranList) add(p.tanggal, "keluar", Number(p.jumlah));
 

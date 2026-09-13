@@ -10,7 +10,6 @@ const PUBLIC_PREFIX = [
   "/api/subscription/midtrans/notification",
   "/manifest.json",
   "/sw.js",
-  "/uploads",
   "/icons",
 ];
 
@@ -26,6 +25,19 @@ export function proxy(req: NextRequest) {
 
   const cookieName = process.env.SESSION_COOKIE_NAME || "gampangin_fnb_session";
   const hasSession = req.cookies.has(cookieName);
+
+  if (pathname.startsWith("/uploads/bukti/")) {
+    if (!hasSession) {
+      return NextResponse.json({ error: "Belum login", type: "auth_required" }, { status: 401 });
+    }
+    const nama = pathname.slice("/uploads/bukti/".length);
+    if (!nama || nama.includes("/") || nama.includes("..")) {
+      return NextResponse.json({ error: "Nama file tidak valid" }, { status: 400 });
+    }
+    const url = req.nextUrl.clone();
+    url.pathname = `/api/uploads/bukti/${nama}`;
+    return NextResponse.rewrite(url);
+  }
 
   if (!hasSession) {
     if (pathname.startsWith("/api/")) {

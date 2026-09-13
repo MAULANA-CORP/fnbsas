@@ -26,9 +26,9 @@ async function hitungOmzet(outletId?: string): Promise<OmzetRingkas> {
   const oFilter = outletId ? { outletId } : {};
   const [posHariIni, b2bHariIni, posBulanIni, b2bBulanIni] = await Promise.all([
     prisma.orderPOS.aggregate({ _sum: { total: true }, where: { createdAt: { gte: awalHariIni(), lte: akhirHariIni() }, ...oFilter } }),
-    prisma.orderB2B.aggregate({ _sum: { total: true }, where: { createdAt: { gte: awalHariIni(), lte: akhirHariIni() }, status: { not: "BATAL" }, ...oFilter } }),
+    prisma.orderB2B.aggregate({ _sum: { total: true }, where: { createdAt: { gte: awalHariIni(), lte: akhirHariIni() }, status: { notIn: ["BATAL", "DRAFT"] }, ...oFilter } }),
     prisma.orderPOS.aggregate({ _sum: { total: true }, where: { createdAt: { gte: awalBulanIni(), lte: akhirHariIni() }, ...oFilter } }),
-    prisma.orderB2B.aggregate({ _sum: { total: true }, where: { createdAt: { gte: awalBulanIni(), lte: akhirHariIni() }, status: { not: "BATAL" }, ...oFilter } }),
+    prisma.orderB2B.aggregate({ _sum: { total: true }, where: { createdAt: { gte: awalBulanIni(), lte: akhirHariIni() }, status: { notIn: ["BATAL", "DRAFT"] }, ...oFilter } }),
   ]);
   const hariIniPOS = Number(posHariIni._sum.total ?? 0);
   const hariIniB2B = Number(b2bHariIni._sum.total ?? 0);
@@ -56,7 +56,7 @@ async function grafikOmzet7Hari(outletId?: string): Promise<GrafikHarian[]> {
   const oFilter = outletId ? { outletId } : {};
   const [pos, b2b] = await Promise.all([
     prisma.orderPOS.findMany({ where: { createdAt: { gte: start }, ...oFilter }, select: { createdAt: true, total: true } }),
-    prisma.orderB2B.findMany({ where: { createdAt: { gte: start }, status: { not: "BATAL" }, ...oFilter }, select: { createdAt: true, total: true } }),
+    prisma.orderB2B.findMany({ where: { createdAt: { gte: start }, status: { notIn: ["BATAL", "DRAFT"] }, ...oFilter }, select: { createdAt: true, total: true } }),
   ]);
   const perHari = new Map<string, number>();
   for (const key of rentangTanggalWIB(start, awalHariIni())) {
@@ -79,7 +79,7 @@ async function topAgenBulanIni(outletId?: string): Promise<TopAgen[]> {
   const prisma = getPrisma();
   const oFilter = outletId ? { outletId } : {};
   const orders = await prisma.orderB2B.findMany({
-    where: { createdAt: { gte: awalBulanIni() }, status: { not: "BATAL" }, ...oFilter },
+    where: { createdAt: { gte: awalBulanIni() }, status: { notIn: ["BATAL", "DRAFT"] }, ...oFilter },
     select: { agenId: true, total: true, agen: { select: { nama: true } } },
   });
   const map = new Map<string, TopAgen>();
@@ -106,7 +106,7 @@ async function topProdukBulanIni(outletId?: string): Promise<TopProduk[]> {
       select: { produkJadiId: true, qty: true, produkJadi: { select: { nama: true } } },
     }),
     prisma.orderB2BItem.findMany({
-      where: { orderB2B: { createdAt: { gte: awalBulanIni() }, status: { not: "BATAL" }, ...oFilter } },
+      where: { orderB2B: { createdAt: { gte: awalBulanIni() }, status: { notIn: ["BATAL", "DRAFT"] }, ...oFilter } },
       select: { produkJadiId: true, qty: true, produkJadi: { select: { nama: true } } },
     }),
   ]);
@@ -149,13 +149,22 @@ export interface JatuhTempoRingkas {
   totalSisa: number;
 }
 
-async function ringkasJatuhTempo(kind: "piutang" | "utang"): Promise<JatuhTempoRingkas> {
+async function ringkasJatuhTempo(kind: "piutang" | "utang", outletId?: string): Promise<JatuhTempoRingkas> {
   const prisma = getPrisma();
   const now = new Date();
+  const outletPiutang = outletId
+    ? { OR: [{ orderPOS: { outletId } }, { orderB2B: { outletId } }] }
+    : {};
   const list =
     kind === "piutang"
-      ? await prisma.piutang.findMany({ where: { status: { not: "LUNAS" } }, select: { totalTagihan: true, totalTerbayar: true, jatuhTempo: true } })
-      : await prisma.utang.findMany({ where: { status: { not: "LUNAS" } }, select: { totalUtang: true, totalTerbayar: true, jatuhTempo: true } });
+      ? await prisma.piutang.findMany({ where: { status: { not: "LUNAS" }, ...outletPiutang }, select: { totalTagihan: true, totalTerbayar: true, jatuhTempo: true } })
+      : await prisma.utang.findMany({
+          where: {
+            status: { not: "LUNAS" },
+            ...(outletId ? { OR: [{ pembelian: { outletId } }, { pembelianId: null }] } : {}),
+          },
+          select: { totalUtang: true, totalTerbayar: true, jatuhTempo: true },
+        });
 
   let jumlahJatuhTempo = 0;
   let jumlahOverdue30 = 0;
@@ -232,9 +241,9 @@ async function omzetSaya(userId: string) {
   const prisma = getPrisma();
   const [posHariIni, b2bHariIni, posBulanIni, b2bBulanIni] = await Promise.all([
     prisma.orderPOS.aggregate({ _sum: { total: true }, where: { userId, createdAt: { gte: awalHariIni(), lte: akhirHariIni() } } }),
-    prisma.orderB2B.aggregate({ _sum: { total: true }, where: { userId, createdAt: { gte: awalHariIni(), lte: akhirHariIni() }, status: { not: "BATAL" } } }),
+    prisma.orderB2B.aggregate({ _sum: { total: true }, where: { userId, createdAt: { gte: awalHariIni(), lte: akhirHariIni() }, status: { notIn: ["BATAL", "DRAFT"] } } }),
     prisma.orderPOS.aggregate({ _sum: { total: true }, where: { userId, createdAt: { gte: awalBulanIni() } } }),
-    prisma.orderB2B.aggregate({ _sum: { total: true }, where: { userId, createdAt: { gte: awalBulanIni() }, status: { not: "BATAL" } } }),
+    prisma.orderB2B.aggregate({ _sum: { total: true }, where: { userId, createdAt: { gte: awalBulanIni() }, status: { notIn: ["BATAL", "DRAFT"] } } }),
   ]);
   return {
     hariIni: Number(posHariIni._sum.total ?? 0) + Number(b2bHariIni._sum.total ?? 0),
@@ -263,9 +272,9 @@ export async function getDashboardData(user: AuthUser, outletId?: string): Promi
     const [omzet, grafik, saldoKas, piutang, utang, topAgen, topProduk, stok] = await Promise.all([
       hitungOmzet(outletId),
       grafikOmzet7Hari(outletId),
-      hitungSaldoKasKumulatif(akhirHariIni()),
-      ringkasJatuhTempo("piutang"),
-      ringkasJatuhTempo("utang"),
+      hitungSaldoKasKumulatif(akhirHariIni(), outletId),
+      ringkasJatuhTempo("piutang", outletId),
+      ringkasJatuhTempo("utang", outletId),
       topAgenBulanIni(outletId),
       topProdukBulanIni(outletId),
       stokMenipis(),

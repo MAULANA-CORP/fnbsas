@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { injectWhere, runWithTenant, tenantCreate, slugifyNamaUsaha, getTenantContext } from "./tenant";
+import {
+  injectWhere,
+  injectRelationWhere,
+  runWithTenant,
+  tenantCreate,
+  slugifyNamaUsaha,
+  getTenantContext,
+} from "./tenant";
 
 describe("2 tenant tidak saling lihat data", () => {
   it("filter tenant A tidak overlap dengan filter tenant B", () => {
@@ -21,6 +28,20 @@ describe("2 tenant tidak saling lihat data", () => {
     expect(rowA.tenantId).toBe("tenant-a");
     expect(rowB.tenantId).toBe("tenant-b");
     expect(getTenantContext()).toBeUndefined();
+  });
+});
+
+describe("tabel anak di-scope lewat induk", () => {
+  it("where kosong jadi filter relasi tenant", () => {
+    expect(injectRelationWhere({}, { orderPOS: { tenantId: "toko-1" } })).toEqual({
+      orderPOS: { tenantId: "toko-1" },
+    });
+  });
+
+  it("where ada digabung AND dengan filter induk", () => {
+    expect(injectRelationWhere({ qty: { gt: 0 } }, { orderPOS: { tenantId: "toko-1" } })).toEqual({
+      AND: [{ qty: { gt: 0 } }, { orderPOS: { tenantId: "toko-1" } }],
+    });
   });
 });
 

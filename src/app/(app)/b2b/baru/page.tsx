@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/api-helpers";
 import { getPrisma } from "@/lib/prisma";
+import { runWithTenant } from "@/lib/tenant";
 import { EmptyState } from "@/components/ui/empty-state";
 import { OrderFormClient } from "./order-form-client";
 
@@ -17,12 +18,16 @@ export default async function BuatOrderB2BPage() {
     );
   }
 
+  if (!user.tenantId) redirect("/login");
+
   const prisma = getPrisma();
-  const [agenList, outletList, produkList] = await Promise.all([
-    prisma.agen.findMany({ orderBy: { nama: "asc" } }),
-    prisma.outlet.findMany({ where: { isActive: true }, orderBy: { nama: "asc" } }),
-    prisma.produkJadi.findMany({ orderBy: { nama: "asc" } }),
-  ]);
+  const [agenList, outletList, produkList] = await runWithTenant(user.tenantId, () =>
+    Promise.all([
+      prisma.agen.findMany({ orderBy: { nama: "asc" } }),
+      prisma.outlet.findMany({ where: { isActive: true }, orderBy: { nama: "asc" } }),
+      prisma.produkJadi.findMany({ orderBy: { nama: "asc" } }),
+    ])
+  );
 
   return (
     <OrderFormClient

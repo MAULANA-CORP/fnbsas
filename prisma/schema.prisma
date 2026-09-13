@@ -408,14 +408,15 @@ model BahanBaku {
 }
 
 model Kemasan {
-  id          String   @id @default(cuid())
-  tenantId    String?
-  nama        String
-  satuan      String // pcs, botol, dus, dst
-  stok        Decimal  @default(0) @db.Decimal(15, 3)
-  stokMinimum Decimal  @default(0) @db.Decimal(15, 3)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id            String   @id @default(cuid())
+  tenantId      String?
+  nama          String
+  satuan        String // pcs, botol, dus, dst
+  stok          Decimal  @default(0) @db.Decimal(15, 3)
+  stokMinimum   Decimal  @default(0) @db.Decimal(15, 3)
+  hargaRataRata Decimal  @default(0) @db.Decimal(15, 2)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   tenant         Tenant?               @relation(fields: [tenantId], references: [id])
   pembelianItem  PembelianItem[]

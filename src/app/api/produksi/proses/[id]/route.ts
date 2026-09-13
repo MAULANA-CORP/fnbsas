@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { withOwnerProduksi, apiError, catatAudit } from "@/lib/api-helpers";
 import { getPrisma } from "@/lib/prisma";
+import { batalkanProses, ProduksiValidationError } from "@/lib/produksi";
 
 /** GET /api/produksi/proses/:id — detail proses + breakdown bahan baku */
 export const GET = withOwnerProduksi(async (_user, _req, ctx: { params: Promise<{ id: string }> }) => {
@@ -91,9 +92,21 @@ export const PATCH = withOwnerProduksi(async (user, req, ctx: { params: Promise<
       );
     }
 
+    if (newStatus === "DIBATALKAN") {
+      const updated = await batalkanProses(user.id, id);
+      await catatAudit({
+        userId: user.id,
+        aksi: "UPDATE",
+        entitas: "Proses",
+        entitasId: id,
+        detail: { statusLama: proses.status, statusBaru: newStatus },
+      });
+      return NextResponse.json({ data: { id: updated.id, status: updated.status } });
+    }
+
     const updated = await prisma.proses.update({
       where: { id },
-      data: { status: newStatus as "SELESAI" | "DIBATALKAN" },
+      data: { status: "SELESAI" },
     });
 
     await catatAudit({
@@ -106,6 +119,9 @@ export const PATCH = withOwnerProduksi(async (user, req, ctx: { params: Promise<
 
     return NextResponse.json({ data: { id: updated.id, status: updated.status } });
   } catch (error) {
+    if (error instanceof ProduksiValidationError) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
     return apiError(error);
   }
 });

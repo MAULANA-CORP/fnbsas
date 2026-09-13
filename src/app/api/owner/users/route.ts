@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { getPrisma } from "@/lib/prisma";
 import { withOwner, catatAudit, apiError } from "@/lib/api-helpers";
+import { runWithoutTenant } from "@/lib/tenant";
 import type { Role } from "@/lib/session";
 
 const ROLES: Role[] = ["OWNER", "FINANCE", "SALES", "PRODUKSI"];
@@ -49,7 +50,12 @@ export const POST = withOwner(async (user, req) => {
       return NextResponse.json({ error: "Role tidak valid" }, { status: 400 });
     }
 
-    const existing = await getPrisma().user.findUnique({ where: { username } });
+    if (outletId) {
+      const outlet = await getPrisma().outlet.findUnique({ where: { id: outletId } });
+      if (!outlet) return NextResponse.json({ error: "Outlet tidak ditemukan" }, { status: 400 });
+    }
+
+    const existing = await runWithoutTenant(() => getPrisma().user.findUnique({ where: { username } }));
     if (existing) {
       return NextResponse.json({ error: "Username sudah dipakai" }, { status: 400 });
     }

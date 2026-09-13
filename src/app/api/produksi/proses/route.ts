@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { withOwnerProduksi, apiError, catatAudit } from "@/lib/api-helpers";
 import { getPrisma } from "@/lib/prisma";
+import { parseTanggalAkhir, parseTanggalAwal } from "@/lib/period";
 import { buatProses, ProduksiValidationError } from "@/lib/produksi";
 import { assertBisaTransaksi } from "@/lib/subscription";
 
@@ -19,8 +20,8 @@ export const GET = withOwnerProduksi(async (_user, req) => {
     if (status) where.status = status;
     if (dari || sampai) {
       const rentang: Record<string, Date> = {};
-      if (dari) rentang.gte = new Date(dari);
-      if (sampai) rentang.lte = new Date(`${sampai}T23:59:59`);
+      if (dari) rentang.gte = parseTanggalAwal(dari) ?? new Date(dari);
+      if (sampai) rentang.lte = parseTanggalAkhir(sampai) ?? new Date(`${sampai}T23:59:59.999+07:00`);
       where.tanggal = rentang;
     }
 

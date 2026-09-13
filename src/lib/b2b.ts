@@ -162,7 +162,7 @@ export async function buatOrderB2B(user: AuthUser, input: BuatOrderInput) {
         subtotal: subtotalOrder,
         total: subtotalOrder,
         catatan: input.catatan?.trim() || null,
-        metodeBayar: input.metodeBayar ?? "TRANSFER_QRIS",
+        metodeBayar: input.metodeBayar ?? "KREDIT",
         items: {
           create: input.items.map((it) => ({
             produkJadiId: it.produkJadiId,
@@ -198,7 +198,7 @@ export async function buatOrderB2B(user: AuthUser, input: BuatOrderInput) {
     }
     // 6) Auto lunas untuk Cash & Transfer_QRIS — invoice + piutang + baris Pembayaran
     //    (Arus Kas & Neraca menghitung kas dari tabel Pembayaran, bukan dari status LUNAS).
-    const metodeBayar = input.metodeBayar ?? "TRANSFER_QRIS";
+    const metodeBayar = input.metodeBayar ?? "KREDIT";
     if (metodeBayar === "CASH" || metodeBayar === "TRANSFER_QRIS") {
       const nomorInvoice = buatNomorDokumen("INV");
       await tx.invoice.create({

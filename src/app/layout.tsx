@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Bricolage_Grotesque, Figtree, Spline_Sans_Mono } from "next/font/google";
 import { ThemeScript } from "@/components/theme-script";
+import { PwaRegister } from "@/components/pwa-register";
 import { Providers } from "@/app/providers";
 import "./globals.css";
 
@@ -42,7 +43,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="apple-touch-icon" href="/icons/icon-192.png" />
       </head>
       <body className="antialiased">
-        <Providers>{children}</Providers>
+        <Providers>
+          <PwaRegister />
+          {children}
+        </Providers>
       </body>
     </html>
   );

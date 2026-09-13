@@ -9,6 +9,7 @@ export default async function AppGroupLayout({ children }: { children: React.Rea
   const user = await getCurrentUser();
   if (!user) redirect("/login");
   if (user.role === "PLATFORM_ADMIN") redirect("/admin");
+  if (!user.tenantId) redirect("/login");
 
   const pengaturan = user.tenantId
     ? await runWithTenant(user.tenantId, () =>

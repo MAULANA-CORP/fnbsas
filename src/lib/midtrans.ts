@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { createHash, timingSafeEqual } from "node:crypto";
 
 export function midtransAktif() {
   return Boolean(process.env.MIDTRANS_SERVER_KEY && process.env.MIDTRANS_CLIENT_KEY);
@@ -43,7 +43,20 @@ export function notifikasiSah(body: {
 }) {
   if (!body.order_id || !body.status_code || !body.gross_amount || !body.signature_key) return false;
   const expected = signatureMidtrans(body.order_id, body.status_code, body.gross_amount);
-  return expected === body.signature_key;
+  return signatureSama(expected, body.signature_key);
+}
+
+export function signatureSama(a: string, b: string) {
+  const ba = Buffer.from(a);
+  const bb = Buffer.from(b);
+  if (ba.length !== bb.length) return false;
+  return timingSafeEqual(ba, bb);
+}
+
+/** Bandingkan gross_amount Midtrans dengan tagihan kita (toleransi 50 sen). */
+export function nominalCocok(grossAmount: string, jumlah: number) {
+  const a = Number(grossAmount);
+  return Number.isFinite(a) && Math.abs(a - Number(jumlah)) < 0.51;
 }
 
 export function statusMidtransLunas(transactionStatus: string, fraudStatus?: string) {

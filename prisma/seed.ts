@@ -67,6 +67,9 @@ async function seedTenant(opts: {
 }
 
 async function main() {
+  if (process.env.NODE_ENV === "production" && !process.env.SEED_ADMIN_PASSWORD) {
+    throw new Error("SEED_ADMIN_PASSWORD wajib diisi saat seed di produksi");
+  }
   const password = process.env.SEED_ADMIN_PASSWORD || "admin123";
   const passwordHash = await bcrypt.hash(password, 10);
 

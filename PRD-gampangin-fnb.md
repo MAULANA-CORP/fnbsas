@@ -13,7 +13,7 @@ Gampangin FNB adalah aplikasi manajemen operasional internal untuk bisnis Food &
 - **Auth:** Username & Password (iron-session), tanpa Google OAuth. Akun dibuat oleh Owner lewat User Management.
 - **Multi-outlet:** Satu brand, banyak outlet/cabang. Transaksi, stok, dan laporan bisa difilter per outlet.
 - **Data Input:** Manual entry, import (CSV) untuk Database (Bahan Baku/Kemasan/Produk/Customer/Agen/Supplier), dan auto-entry dari transaksi (customer/agen baru otomatis masuk Database saat transaksi pertama).
-- **Export:** Excel & PDF untuk laporan keuangan; PDF untuk cetak Invoice B2B.
+- **Export:** Excel untuk laporan keuangan. Invoice B2B dicetak lewat browser (Cetak / Simpan PDF).
 - **Constraint khusus:** Bukan pembukuan akuntansi penuh (tanpa jurnal umum/double-entry formal) — Laba Rugi, Arus Kas, dan Neraca dihitung secara agregat dari transaksi (lihat §7 Business Logic).
 
 ---
@@ -36,7 +36,7 @@ Ringkasan bisnis, konten berbeda per role:
 
 ### 3.3 B2B (Business) — dulu disebut "Bussiness" (Must-have)
 - Order ke **Agen/Distributor**.
-- Alur: Order dibuat → **Invoice diterbitkan (cetak PDF)** → barang **dikirim** (dicatat pakai **Surat Jalan** + **No. Resi**) → **Payment**.
+- Alur: Order dibuat → **Invoice diterbitkan (cetak lewat browser)** → barang **dikirim** (dicatat pakai **Surat Jalan** + **No. Resi**) → **Payment**.
 - Payment bisa **di muka** atau **belakangan** (mayoritas setelah kirim) — juga bisa Kredit (Langsung Lunas/Parsial + jatuh tempo) sama seperti POS.
 - Status order: Draft → Invoice Diterbitkan → Dikirim → Parsial/Lunas → (Batal, jika perlu).
 - Agen baru otomatis masuk Database (kalau belum ada).
@@ -68,7 +68,7 @@ Master data, masing-masing bisa diisi lewat **Import (CSV)**, **Entry manual**, 
 ### 3.7 Inventory (Must-have)
 - 3 ledger stok terpisah: **Produk Jadi**, **Bahan Baku**, **Kemasan**.
 - Riwayat pergerakan stok (in/out) dengan referensi sumber (pembelian, produksi, penjualan, adjustment manual, waste).
-- Stok per outlet.
+- Stok **terpusat per toko (tenant)** di v1 — satu angka stok bahan baku / kemasan / produk jadi untuk semua outlet. Filter outlet berlaku pada transaksi (POS/B2B/produksi/pembelian), bukan ledger stok terpisah per cabang. Stok per outlet = backlog.
 - Alert stok menipis (ambang batas per item).
 
 ### 3.8 Finance Room (role Finance, Must-have)
@@ -77,16 +77,16 @@ Bagian khusus, akses terbatas ke role FINANCE (dan OWNER):
 - **Arus Kas (Cash Flow)**: agregat dari penjualan, pembelian, pembayaran utang/piutang, modal masuk, dan prive — mempengaruhi saldo kas saat ini.
 - **Laba Rugi (P&L)**: Penjualan − HPP (dari biaya produksi: bahan baku + kemasan terpakai) − Beban Operasional (jika dicatat).
 - **Neraca (Balance Sheet)**: Aset (Kas + Piutang + Nilai Stok) vs Kewajiban (Utang) + Modal (Modal Awal + Penambahan − Prive + Laba Ditahan).
-- Export laporan ke Excel/PDF.
+- Export laporan ke Excel. Invoice dicetak lewat browser.
 
 ### 3.9 Pengeluaran / Beban Operasional (role Finance, Must-have)
 - Catat beban operasional di luar pembelian bahan baku/kemasan: gaji, sewa, listrik & air, transportasi, marketing, lain-lain.
 - Field: kategori (dropdown searchable, bisa tambah kategori baru), jumlah, tanggal, outlet, keterangan, dicatat oleh siapa.
 - Masuk sebagai **Beban Operasional** di Laba Rugi, dan sebagai cash-out di Arus Kas.
-- Filter per kategori, periode, outlet. Export Excel/PDF.
+- Filter per kategori, periode, outlet. Export Excel.
 
 ### 3.10 Report (Must-have)
-- Laporan Laba Rugi, Arus Kas, Neraca (lihat §3.8), bisa difilter per periode & outlet, export Excel/PDF.
+- Laporan Laba Rugi, Arus Kas, Neraca (lihat §3.8), bisa difilter per periode & outlet, export Excel.
 - Laporan penjualan (POS/B2B), laporan piutang jatuh tempo, laporan stok, laporan pengeluaran.
 
 ### 3.11 Panduan (Must-have)

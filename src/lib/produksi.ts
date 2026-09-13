@@ -335,6 +335,17 @@ export async function buatOutput(input: BuatOutputInput): Promise<BuatOutputHasi
       }
     }
 
+    const sudahDipakai = await tx.outputProses.findMany({
+      where: { prosesId: { in: input.prosesIds } },
+      select: { prosesId: true, proses: { select: { nomor: true } } },
+    });
+    if (sudahDipakai.length > 0) {
+      const nomor = [...new Set(sudahDipakai.map((s) => s.proses.nomor))].join(", ");
+      throw new ProduksiValidationError(
+        `Proses ${nomor} sudah dipakai di Output lain. Satu proses hanya boleh masuk satu Output.`
+      );
+    }
+
     // 2) Hitung total biaya dari semua Proses terkait
     let totalBiayaProses = 0;
     for (const p of prosesList) {
@@ -384,7 +395,7 @@ export async function buatOutput(input: BuatOutputInput): Promise<BuatOutputHasi
           kemasanLines.push({
             kemasanId,
             qtyPakai,
-            hargaSatuanSaatItu: 0, // Kemasan master doesn't track price; manual kemasan lines can override
+            hargaSatuanSaatItu: Number(kemasan.hargaRataRata) || 0,
           });
         }
       }
@@ -525,5 +536,50 @@ export async function buatOutput(input: BuatOutputInput): Promise<BuatOutputHasi
       totalBiaya: alokasi.totalBiayaBatch,
       alokasi,
     };
+  });
+}
+
+/** Batalkan Proses DRAFT: kembalikan stok bahan baku + catat movement IN. */
+export async function batalkanProses(userId: string, prosesId: string) {
+  const prisma = getPrisma();
+
+  return prisma.$transaction(async (tx) => {
+    const proses = await tx.proses.findUnique({
+      where: { id: prosesId },
+      include: { bahanBaku: { include: { bahanBaku: true } }, outputs: true },
+    });
+    if (!proses) throw new ProduksiValidationError("Proses tidak ditemukan.");
+    if (proses.status !== "DRAFT") {
+      throw new ProduksiValidationError(
+        `Proses sudah berstatus ${proses.status}, tidak bisa dibatalkan.`
+      );
+    }
+    if (proses.outputs.length > 0) {
+      throw new ProduksiValidationError("Proses sudah dipakai di Output, tidak bisa dibatalkan.");
+    }
+
+    for (const line of proses.bahanBaku) {
+      const qty = Number(line.qtyPakai) + Number(line.qtyWaste);
+      if (!(qty > 0)) continue;
+      await tx.bahanBaku.update({
+        where: { id: line.bahanBakuId },
+        data: { stok: { increment: qty } },
+      });
+      await tx.stokMovementBahanBaku.create({
+        data: tenantCreate({
+          bahanBakuId: line.bahanBakuId,
+          tipe: "IN",
+          qty,
+          sumber: "ADJUSTMENT",
+          referensiId: proses.id,
+          keterangan: `Batal proses ${proses.nomor}: kembalikan ${qty} ${line.bahanBaku.satuan}`,
+        }),
+      });
+    }
+
+    return tx.proses.update({
+      where: { id: prosesId },
+      data: { status: "DIBATALKAN" },
+    });
   });
 }

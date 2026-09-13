@@ -14,9 +14,9 @@ import { formatRupiah, formatAngka } from "@/lib/utils";
 import { toastApiError } from "@/lib/api-client";
 
 const METODE_OPTIONS: SelectOption[] = [
-  { value: "CASH", label: "Cash", hint: "Bayar langsung, order otomatis lunas" },
-  { value: "TRANSFER_QRIS", label: "Transfer / QRIS", hint: "Bayar langsung, order otomatis lunas" },
-  { value: "KREDIT", label: "Kredit", hint: "Cicilan tempo, buat Piutang" },
+  { value: "KREDIT", label: "Kredit / Tempo", hint: "Default B2B — bayar belakangan" },
+  { value: "CASH", label: "Cash", hint: "Sudah terima uang, order otomatis lunas" },
+  { value: "TRANSFER_QRIS", label: "Transfer / QRIS", hint: "Sudah terima transfer, order otomatis lunas" },
 ];
 
 
@@ -66,7 +66,7 @@ export function OrderFormClient({
   const [outletId, setOutletId] = React.useState<string | null>(defaultOutletId ?? outletList[0]?.id ?? null);
   const [rows, setRows] = React.useState<Row[]>([baris()]);
   const [catatan, setCatatan] = React.useState("");
-  const [metodeBayar, setMetodeBayar] = React.useState<string>("TRANSFER_QRIS");
+  const [metodeBayar, setMetodeBayar] = React.useState<string>("KREDIT");
   const [submitting, setSubmitting] = React.useState(false);
 
   const [dialogAgenOpen, setDialogAgenOpen] = React.useState(false);
@@ -256,7 +256,7 @@ export function OrderFormClient({
                 emptyText="Metode tidak ditemukan"
                 options={METODE_OPTIONS}
                 value={metodeBayar}
-                onChange={(v) => setMetodeBayar(v ?? "TRANSFER_QRIS")}
+                onChange={(v) => setMetodeBayar(v ?? "KREDIT")}
               />
               {!isKredit && (
                 <p className="mt-1 text-xs text-blue-600 dark:text-blue-400">

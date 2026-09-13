@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getPrisma } from "@/lib/prisma";
 import { withOwner, apiError } from "@/lib/api-helpers";
+import { parseTanggalAkhir, parseTanggalAwal } from "@/lib/period";
 
 // GET /api/owner/audit-log — riwayat AuditLog, bisa difilter (entitas, user, rentang tanggal) + paginasi.
 export const GET = withOwner(async (_user, req) => {
@@ -19,12 +20,10 @@ export const GET = withOwner(async (_user, req) => {
     if (userId) where.userId = userId;
     if (dari || sampai) {
       where.createdAt = {};
-      if (dari && !Number.isNaN(new Date(dari).getTime())) where.createdAt.gte = new Date(dari);
-      if (sampai && !Number.isNaN(new Date(sampai).getTime())) {
-        const akhir = new Date(sampai);
-        akhir.setHours(23, 59, 59, 999);
-        where.createdAt.lte = akhir;
-      }
+      const awal = parseTanggalAwal(dari);
+      const akhir = parseTanggalAkhir(sampai);
+      if (awal) where.createdAt.gte = awal;
+      if (akhir) where.createdAt.lte = akhir;
     }
 
     const prisma = getPrisma();

@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
-import { withAuth, apiError } from "@/lib/api-helpers";
+import { withOwnerSales, apiError } from "@/lib/api-helpers";
 import { batalOrderPOS, PosError } from "@/lib/pos";
 
 // POST /api/pos/:id/batal - Batalkan Order POS
-export const POST = withAuth<{ params: Promise<{ id: string }> }>(async (user, req, ctx) => {
+export const POST = withOwnerSales<{ params: Promise<{ id: string }> }>(async (user, req, ctx) => {
   try {
     const { id } = await ctx.params;
     await batalOrderPOS(user, id);

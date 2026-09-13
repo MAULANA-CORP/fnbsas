@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { getPrisma } from "@/lib/prisma";
 import { getSession } from "@/lib/session";
-import { slugifyNamaUsaha } from "@/lib/tenant";
+import { runWithoutTenant, slugifyNamaUsaha } from "@/lib/tenant";
 
 const percobaan = new Map<string, { n: number; sampai: number }>();
 const MAKS = 8;
@@ -20,6 +20,10 @@ function kenaLimit(ip: string) {
 }
 
 export async function POST(req: Request) {
+  return runWithoutTenant(() => registerPost(req));
+}
+
+async function registerPost(req: Request) {
   const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
   if (kenaLimit(ip)) {
     return NextResponse.json(

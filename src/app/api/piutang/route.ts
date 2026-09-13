@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getPrisma } from "@/lib/prisma";
 import { withRole, apiError } from "@/lib/api-helpers";
+import { parseTanggalAkhir, parseTanggalAwal } from "@/lib/period";
 import { serializePiutang } from "@/lib/utang-piutang";
 
 // GET /api/piutang — list + filter. Piutang dibuat otomatis oleh modul POS/B2B,
@@ -24,13 +25,13 @@ export const GET = withRole(["OWNER", "FINANCE", "SALES"], async (user, req) => 
     if (pihak) where.pihakNama = { contains: pihak, mode: "insensitive" };
     if (jatuhTempoDari || jatuhTempoSampai) {
       where.jatuhTempo = {};
-      if (jatuhTempoDari) where.jatuhTempo.gte = new Date(jatuhTempoDari);
-      if (jatuhTempoSampai) where.jatuhTempo.lte = new Date(jatuhTempoSampai);
+      if (jatuhTempoDari) where.jatuhTempo.gte = parseTanggalAwal(jatuhTempoDari) ?? new Date(jatuhTempoDari);
+      if (jatuhTempoSampai) where.jatuhTempo.lte = parseTanggalAkhir(jatuhTempoSampai) ?? new Date(jatuhTempoSampai);
     }
     if (tanggalDari || tanggalSampai) {
       where.createdAt = {};
-      if (tanggalDari) where.createdAt.gte = new Date(tanggalDari);
-      if (tanggalSampai) where.createdAt.lte = new Date(tanggalSampai);
+      if (tanggalDari) where.createdAt.gte = parseTanggalAwal(tanggalDari) ?? new Date(tanggalDari);
+      if (tanggalSampai) where.createdAt.lte = parseTanggalAkhir(tanggalSampai) ?? new Date(tanggalSampai);
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

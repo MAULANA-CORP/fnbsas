@@ -1,7 +1,7 @@
 # Deploy Gampangin FNB ke EasyPanel
 
 Repo sudah di GitHub: `https://github.com/MAULANA-CORP/fnbsas.git` (branch `main`).
-**Tidak ada folder `prisma/migrations`** — schema di-sync pakai `prisma db push`, bukan `migrate deploy`.
+**Tidak ada folder `prisma/migrations`** — schema di-sync pakai `prisma db push`, bukan `migrate deploy`. Setiap kali `schema.prisma` berubah (contoh: kolom `hargaRataRata` di Kemasan), jalankan `db push` lagi sebelum pakai fitur baru.
 
 ## 1. PostgreSQL
 

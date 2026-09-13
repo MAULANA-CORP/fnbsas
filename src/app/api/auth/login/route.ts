@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { getPrisma } from "@/lib/prisma";
 import { getSession } from "@/lib/session";
+import { runWithoutTenant } from "@/lib/tenant";
 
 // Rate limit sederhana per IP (in-memory). Untuk multi-instance, pindahkan ke Redis/DB.
 const percobaan = new Map<string, { n: number; sampai: number }>();
@@ -20,6 +21,10 @@ function kenaLimit(ip: string) {
 }
 
 export async function POST(req: Request) {
+  return runWithoutTenant(() => loginPost(req));
+}
+
+async function loginPost(req: Request) {
   const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
 
   if (kenaLimit(ip)) {

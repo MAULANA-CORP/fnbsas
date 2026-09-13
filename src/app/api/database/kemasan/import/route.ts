@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getPrisma } from "@/lib/prisma";
 import { withOwner, apiError, catatAudit } from "@/lib/api-helpers";
 import { classifyImportRows, normalizeNama, ENTITY_DEFS, type ImportSummary } from "@/lib/import-csv";
+import { catatPerubahanStokMaster } from "@/lib/stok-awal";
 
 const FIELDS = ENTITY_DEFS.kemasan.fields;
 
@@ -14,7 +15,7 @@ export const POST = withOwner(async (user, req) => {
       return NextResponse.json({ error: "Tidak ada baris untuk diimpor" }, { status: 400 });
     }
 
-    const existing = await getPrisma().kemasan.findMany({ take: 200, select: { id: true, nama: true } });
+    const existing = await getPrisma().kemasan.findMany({ select: { id: true, nama: true, stok: true } });
     const existingMap = new Map(existing.map((e) => [normalizeNama(e.nama), e.id]));
 
     const classified = classifyImportRows(rawRows, FIELDS, existingMap);
@@ -31,13 +32,31 @@ export const POST = withOwner(async (user, req) => {
         satuan: String(row.data.satuan),
         stok: Number(row.data.stok ?? 0),
         stokMinimum: Number(row.data.stokMinimum ?? 0),
+        hargaRataRata: Number(row.data.hargaRataRata ?? 0),
       };
       try {
         if (row.action === "update" && row.matchedId) {
+          const lama = existing.find((e) => e.id === row.matchedId);
           await getPrisma().kemasan.update({ where: { id: row.matchedId }, data });
+          await catatPerubahanStokMaster(getPrisma(), {
+            jenis: "kemasan",
+            id: row.matchedId,
+            stokLama: Number(lama?.stok ?? 0),
+            stokBaru: data.stok,
+            tenantId: user.tenantId,
+            keterangan: `Import koreksi ${data.nama}`,
+          });
           summary.updated++;
         } else {
-          await getPrisma().kemasan.create({ data });
+          const created = await getPrisma().kemasan.create({ data });
+          await catatPerubahanStokMaster(getPrisma(), {
+            jenis: "kemasan",
+            id: created.id,
+            stokLama: 0,
+            stokBaru: data.stok,
+            tenantId: user.tenantId,
+            keterangan: `Import stok awal ${data.nama}`,
+          });
           summary.created++;
         }
       } catch {

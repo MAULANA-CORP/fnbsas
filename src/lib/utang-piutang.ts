@@ -9,6 +9,7 @@ import { getPrisma } from "@/lib/prisma";
 import { catatAudit, type AuthUser } from "@/lib/api-helpers";
 import { buatNomorDokumen } from "@/lib/utils";
 import { tenantCreate } from "@/lib/tenant";
+import { hitungStatusOrder } from "@/lib/b2b";
 
 export type StatusBayarValue = "LUNAS" | "PARSIAL" | "BELUM_BAYAR";
 export type SumberUtangValue = "PEMBELIAN" | "PINJAMAN" | "INVESTOR";
@@ -88,6 +89,32 @@ export async function rekamPembayaran(user: AuthUser, input: RekamPembayaranInpu
         where: { id: input.id },
         data: { totalTerbayar: totalTerbayarBaru, status },
       });
+
+      if (piutang.orderPOSId) {
+        await tx.orderPOS.update({
+          where: { id: piutang.orderPOSId },
+          data: { statusBayar: status },
+        });
+      }
+      if (piutang.orderB2BId) {
+        const order = await tx.orderB2B.findUnique({
+          where: { id: piutang.orderB2BId },
+          include: { invoice: true, suratJalan: true },
+        });
+        if (order) {
+          await tx.orderB2B.update({
+            where: { id: order.id },
+            data: {
+              statusBayar: status,
+              status: hitungStatusOrder({
+                adaInvoice: Boolean(order.invoice),
+                adaSuratJalan: Boolean(order.suratJalan),
+                statusBayar: status,
+              }),
+            },
+          });
+        }
+      }
 
       return { pembayaran, parent: updated };
     }
@@ -276,9 +303,19 @@ export async function buatPembelian(user: AuthUser, input: BuatPembelianInput) {
       } else if (item.kemasanId) {
         const km = await tx.kemasan.findUnique({ where: { id: item.kemasanId } });
         if (!km) throw new UtangPiutangError("Salah satu Kemasan tidak ditemukan");
+
+        const stokLamaKm = Number(km.stok);
+        const hargaLamaKm = Number(km.hargaRataRata);
+        const qtyBaruKm = Number(item.qty);
+        const hargaBaruKm = Number(item.hargaSatuan);
+        const stokBaruKm = stokLamaKm + qtyBaruKm;
+        const hargaRataRataKm = stokBaruKm > 0
+          ? Math.round(((hargaLamaKm * stokLamaKm + hargaBaruKm * qtyBaruKm) / stokBaruKm) * 100) / 100
+          : hargaBaruKm;
+
         await tx.kemasan.update({
           where: { id: item.kemasanId },
-          data: { stok: { increment: item.qty } },
+          data: { stok: { increment: item.qty }, hargaRataRata: hargaRataRataKm },
         });
         await tx.stokMovementKemasan.create({
           data: tenantCreate({
@@ -356,6 +393,8 @@ export interface BuatUtangStandaloneInput {
 }
 
 export async function buatUtangStandalone(user: AuthUser, input: BuatUtangStandaloneInput) {
+  const { assertBisaTransaksi } = await import("@/lib/subscription");
+  await assertBisaTransaksi(user);
   if (input.sumber !== "PINJAMAN" && input.sumber !== "INVESTOR") {
     throw new UtangPiutangError("Sumber utang harus Pinjaman atau Investor");
   }

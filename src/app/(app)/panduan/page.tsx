@@ -110,7 +110,7 @@ const steps: Step[] = [
       <>
         <p>
           Buka menu <strong>B2B</strong> untuk order ke Agen/Distributor. Alurnya: buat Order → Invoice otomatis
-          terbit (bisa dicetak PDF) → saat barang dikirim, isi Surat Jalan + No. Resi → terakhir catat Payment (bisa
+          terbit (bisa dicetak / disimpan PDF dari browser) → saat barang dikirim, isi Surat Jalan + No. Resi → terakhir catat Payment (bisa
           di muka atau belakangan).
         </p>
       </>
@@ -147,7 +147,7 @@ const steps: Step[] = [
         </p>
         <p>
           <strong>Report</strong> memberi laporan lebih lengkap: Laba Rugi, Arus Kas, Neraca, laporan penjualan, dan
-          lainnya — bisa difilter per periode &amp; outlet, dan diekspor ke Excel/PDF.
+          lainnya — bisa difilter per periode &amp; outlet, dan diekspor ke Excel.
         </p>
       </>
     ),

@@ -14,7 +14,7 @@ export const POST = withOwnerFinance(async (user, req) => {
       return NextResponse.json({ error: "Tidak ada baris untuk diimpor" }, { status: 400 });
     }
 
-    const existing = await getPrisma().supplier.findMany({ take: 200, select: { id: true, nama: true } });
+    const existing = await getPrisma().supplier.findMany({ select: { id: true, nama: true } });
     const existingMap = new Map(existing.map((e) => [normalizeNama(e.nama), e.id]));
 
     const classified = classifyImportRows(rawRows, FIELDS, existingMap);

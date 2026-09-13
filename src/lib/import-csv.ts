@@ -57,6 +57,13 @@ export const ENTITY_DEFS = {
       { key: "nama", label: "Nama", type: "text", required: true },
       { key: "satuan", label: "Satuan", type: "select", required: true, options: SATUAN_OPTIONS },
       { key: "stok", label: "Stok", type: "number", optionalNumberDefaultsToZero: true },
+      {
+        key: "hargaRataRata",
+        label: "Harga Satuan",
+        type: "number",
+        optionalNumberDefaultsToZero: true,
+        money: true,
+      },
       { key: "stokMinimum", label: "ROP (Stok Min.)", type: "number", optionalNumberDefaultsToZero: true },
     ],
   },

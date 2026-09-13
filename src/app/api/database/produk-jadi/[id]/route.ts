@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getPrisma } from "@/lib/prisma";
 import { withOwner, apiError, catatAudit } from "@/lib/api-helpers";
+import { catatPerubahanStokMaster } from "@/lib/stok-awal";
 
 function serialize(item: {
   id: string;
@@ -63,6 +64,9 @@ export const PUT = withOwner<{ params: Promise<{ id: string }> }>(async (user, r
     const kemasanId = body.kemasanId ? String(body.kemasanId) : null;
     const qtyKemasanPerUnit = body.qtyKemasanPerUnit != null ? Number(body.qtyKemasanPerUnit) : 1;
 
+    const existing = await getPrisma().produkJadi.findUnique({ where: { id } });
+    if (!existing) return NextResponse.json({ error: "Data tidak ditemukan" }, { status: 404 });
+
     const item = await getPrisma().produkJadi.update({
       where: { id },
       data: {
@@ -75,6 +79,15 @@ export const PUT = withOwner<{ params: Promise<{ id: string }> }>(async (user, r
         stok: Number(body.stok ?? 0),
         stokMinimum: Number(body.stokMinimum ?? 0),
       },
+    });
+
+    await catatPerubahanStokMaster(getPrisma(), {
+      jenis: "produkJadi",
+      id: item.id,
+      stokLama: Number(existing.stok),
+      stokBaru: Number(item.stok),
+      tenantId: user.tenantId,
+      keterangan: `Koreksi stok master ${item.nama}`,
     });
 
     await catatAudit({

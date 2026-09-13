@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getPrisma } from "@/lib/prisma";
 import { catatAudit } from "@/lib/api-helpers";
 import { aktifkanPaket } from "@/lib/subscription";
-import { notifikasiSah, statusMidtransGagal, statusMidtransLunas } from "@/lib/midtrans";
+import { nominalCocok, notifikasiSah, statusMidtransGagal, statusMidtransLunas } from "@/lib/midtrans";
 import { runWithoutTenant } from "@/lib/tenant";
 
 export async function POST(req: Request) {
@@ -33,6 +33,14 @@ export async function POST(req: Request) {
       }
 
       if (statusMidtransLunas(trx, body.fraud_status)) {
+        if (!nominalCocok(body.gross_amount ?? "", Number(pembayaran.jumlah))) {
+          console.error("[midtrans webhook] nominal tidak cocok", {
+            orderId,
+            gross: body.gross_amount,
+            tagihan: String(pembayaran.jumlah),
+          });
+          return NextResponse.json({ error: "Nominal tidak cocok" }, { status: 400 });
+        }
         const hasil = await aktifkanPaket({
           pembayaranId: pembayaran.id,
           reviewNote: `Midtrans ${trx}`,

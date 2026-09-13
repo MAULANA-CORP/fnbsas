@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getPrisma } from "@/lib/prisma";
 import { withOwnerFinance } from "@/lib/api-helpers";
+import { parseTanggalAkhir, parseTanggalAwal } from "@/lib/period";
 import { serializeUtang, buatUtangStandalone, UtangPiutangError } from "@/lib/utang-piutang";
 
 // GET /api/utang — list + filter. OWNER & FINANCE saja (SALES tidak punya akses tab Utang).
@@ -25,13 +26,13 @@ export const GET = withOwnerFinance(async (_user, req) => {
     if (outletId) where.pembelian = { outletId };
     if (jatuhTempoDari || jatuhTempoSampai) {
       where.jatuhTempo = {};
-      if (jatuhTempoDari) where.jatuhTempo.gte = new Date(jatuhTempoDari);
-      if (jatuhTempoSampai) where.jatuhTempo.lte = new Date(jatuhTempoSampai);
+      if (jatuhTempoDari) where.jatuhTempo.gte = parseTanggalAwal(jatuhTempoDari) ?? new Date(jatuhTempoDari);
+      if (jatuhTempoSampai) where.jatuhTempo.lte = parseTanggalAkhir(jatuhTempoSampai) ?? new Date(jatuhTempoSampai);
     }
     if (tanggalDari || tanggalSampai) {
       where.createdAt = {};
-      if (tanggalDari) where.createdAt.gte = new Date(tanggalDari);
-      if (tanggalSampai) where.createdAt.lte = new Date(tanggalSampai);
+      if (tanggalDari) where.createdAt.gte = parseTanggalAwal(tanggalDari) ?? new Date(tanggalDari);
+      if (tanggalSampai) where.createdAt.lte = parseTanggalAkhir(tanggalSampai) ?? new Date(tanggalSampai);
     }
 
     const utang = await getPrisma().utang.findMany({ take: 200, where,

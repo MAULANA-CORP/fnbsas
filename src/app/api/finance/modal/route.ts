@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getPrisma } from "@/lib/prisma";
 import { withOwnerFinance, catatAudit, apiError } from "@/lib/api-helpers";
+import { parseTanggalAkhir, parseTanggalAwal } from "@/lib/period";
 
 const TIPE_VALID = ["MODAL_AWAL", "PENAMBAHAN", "PRIVE"] as const;
 const SUMBER_DANA_VALID = ["UANG_SENDIRI", "PINJAMAN", "INVESTOR"] as const;
@@ -42,12 +43,8 @@ export const GET = withOwnerFinance(async (_user, req) => {
     if (tipe && (TIPE_VALID as readonly string[]).includes(tipe)) where.tipe = tipe;
     if (start || end) {
       where.tanggal = {};
-      if (start) where.tanggal.gte = new Date(start);
-      if (end) {
-        const e = new Date(end);
-        e.setHours(23, 59, 59, 999);
-        where.tanggal.lte = e;
-      }
+      if (start) where.tanggal.gte = parseTanggalAwal(start) ?? new Date(start);
+      if (end) where.tanggal.lte = parseTanggalAkhir(end) ?? new Date(`${end}T23:59:59.999+07:00`);
     }
 
     const entries = await getPrisma().modal.findMany({

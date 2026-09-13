@@ -4,7 +4,7 @@
 import { NextResponse } from "next/server";
 import { getSession, type Role, type SubscriptionTier } from "@/lib/session";
 import { getPrisma } from "@/lib/prisma";
-import { runWithTenant } from "@/lib/tenant";
+import { runWithTenant, runWithoutTenant } from "@/lib/tenant";
 import { SubscriptionError } from "@/lib/subscription";
 
 export interface AuthUser {
@@ -23,17 +23,19 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
   const session = await getSession();
   if (!session.isLoggedIn || !session.userId) return null;
 
-  const user = await getPrisma().user.findFirst({
-    where: { id: session.userId, isActive: true },
-    select: {
-      id: true,
-      nama: true,
-      role: true,
-      outletId: true,
-      tenantId: true,
-      tenant: { select: { namaUsaha: true, tier: true, paidUntil: true, status: true, isSuspended: true } },
-    },
-  });
+  const user = await runWithoutTenant(() =>
+    getPrisma().user.findFirst({
+      where: { id: session.userId, isActive: true },
+      select: {
+        id: true,
+        nama: true,
+        role: true,
+        outletId: true,
+        tenantId: true,
+        tenant: { select: { namaUsaha: true, tier: true, paidUntil: true, status: true, isSuspended: true } },
+      },
+    })
+  );
   if (!user) return null;
 
   let tier: SubscriptionTier | null = user.tenant?.tier ?? null;
@@ -55,9 +57,22 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
 
 type Handler<T> = (user: AuthUser, req: Request, ctx: T) => Promise<Response> | Response;
 
+function tolakTanpaToko() {
+  return NextResponse.json(
+    { error: "Akun tidak terikat ke toko. Hubungi admin Gampangin.", type: "forbidden" },
+    { status: 403 }
+  );
+}
+
 function withTenantScope<T>(user: AuthUser, handler: Handler<T>, req: Request, ctx: T) {
-  const skipTenant = user.role === "PLATFORM_ADMIN";
-  return runWithTenant(skipTenant ? null : user.tenantId, () => handler(user, req, ctx));
+  if (user.role === "PLATFORM_ADMIN") {
+    return NextResponse.json(
+      { error: "Gunakan panel admin untuk akun platform.", type: "forbidden" },
+      { status: 403 }
+    );
+  }
+  if (!user.tenantId) return tolakTanpaToko();
+  return runWithTenant(user.tenantId, () => handler(user, req, ctx));
 }
 
 export function withAuth<T>(handler: Handler<T>) {
@@ -109,7 +124,25 @@ export const withOwner = <T>(h: Handler<T>) => withRole<T>(["OWNER"], h);
 export const withOwnerFinance = <T>(h: Handler<T>) => withRole<T>(["OWNER", "FINANCE"], h);
 export const withOwnerSales = <T>(h: Handler<T>) => withRole<T>(["OWNER", "SALES"], h);
 export const withOwnerProduksi = <T>(h: Handler<T>) => withRole<T>(["OWNER", "PRODUKSI"], h);
-export const withPlatformAdmin = <T>(h: Handler<T>) => withRole<T>(["PLATFORM_ADMIN"], h);
+
+export function withPlatformAdmin<T>(handler: Handler<T>) {
+  return async (req: Request, ctx: T) => {
+    const user = await getCurrentUser();
+    if (!user) {
+      return NextResponse.json(
+        { error: "Belum login", type: "auth_required" },
+        { status: 401 }
+      );
+    }
+    if (user.role !== "PLATFORM_ADMIN") {
+      return NextResponse.json(
+        { error: "Anda tidak punya akses untuk tindakan ini.", type: "forbidden" },
+        { status: 403 }
+      );
+    }
+    return runWithoutTenant(() => handler(user, req, ctx));
+  };
+}
 
 /** Error terstruktur -> respons JSON yang konsisten */
 export function apiError(error: unknown) {

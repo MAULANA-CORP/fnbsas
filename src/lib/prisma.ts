@@ -1,6 +1,12 @@
 import { PrismaClient, Prisma } from "@/generated/prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
-import { TENANTED_MODELS, getTenantContext, injectWhere } from "@/lib/tenant";
+import {
+  TENANTED_MODELS,
+  CHILD_SCOPED_MODELS,
+  getTenantContext,
+  injectWhere,
+  injectRelationWhere,
+} from "@/lib/tenant";
 
 const globalForPrisma = globalThis as unknown as { prisma?: AppPrisma; prismaBase?: PrismaClient };
 
@@ -21,6 +27,17 @@ function uncapitalize(name: string) {
   return name.charAt(0).toLowerCase() + name.slice(1);
 }
 
+function wajibContext(model: string, operation: string) {
+  const ctx = getTenantContext();
+  if (!ctx) {
+    throw new Error(`[prisma] ${model}.${operation} tanpa tenant context`);
+  }
+  if (!ctx.skip && !ctx.tenantId) {
+    throw new Error(`[prisma] ${model}.${operation} tenantId kosong`);
+  }
+  return ctx;
+}
+
 function createPrismaClient() {
   const connectionString = process.env.DATABASE_URL;
   if (!connectionString?.startsWith("postgres")) {
@@ -33,22 +50,24 @@ function createPrismaClient() {
     query: {
       $allModels: {
         async $allOperations({ model, operation, args, query }) {
-          const ctx = getTenantContext();
-          const skip = !ctx || ctx.skip || !ctx.tenantId || !TENANTED_MODELS.has(model);
-          if (skip) return query(args);
+          const childFilter = model ? CHILD_SCOPED_MODELS[model] : undefined;
+          const isTenanted = Boolean(model && TENANTED_MODELS.has(model));
 
-          const tenantId = ctx.tenantId;
-          if (!tenantId) return query(args);
+          if (!isTenanted && !childFilter) {
+            return query(args);
+          }
+
+          const ctx = wajibContext(model ?? "Unknown", operation);
+          if (ctx.skip) return query(args);
+
+          const tenantId = ctx.tenantId!;
           const a = args as Record<string, unknown>;
 
-          // Login / cek username global — jangan di-scope tenant
-          if (
-            model === "User" &&
-            a?.where &&
-            typeof a.where === "object" &&
-            a.where !== null &&
-            "username" in (a.where as object)
-          ) {
+          if (childFilter) {
+            if (WHERE_OPS.has(operation)) {
+              a.where = injectRelationWhere(a.where, childFilter(tenantId));
+              return query(a);
+            }
             return query(args);
           }
 
@@ -77,8 +96,8 @@ function createPrismaClient() {
           if (operation === "upsert") {
             const create = (a.create ?? {}) as Record<string, unknown>;
             if (create.tenantId === undefined) a.create = { tenantId, ...create };
-            const result = (await query(a)) as { tenantId?: string } | null;
-            if (result?.tenantId && result.tenantId !== tenantId) {
+            const result = (await query(a)) as { tenantId?: string | null } | null;
+            if (result && result.tenantId !== tenantId) {
               throw new Error("Data tidak ditemukan");
             }
             return result;
@@ -86,7 +105,7 @@ function createPrismaClient() {
 
           if (UNIQUE_READ.has(operation)) {
             const result = (await query(args)) as { tenantId?: string | null } | null;
-            if (result && result.tenantId && result.tenantId !== tenantId) {
+            if (result && result.tenantId !== tenantId) {
               if (operation === "findUniqueOrThrow") throw new Error("Data tidak ditemukan");
               return null;
             }
@@ -94,9 +113,9 @@ function createPrismaClient() {
           }
 
           if (UNIQUE_WRITE.has(operation)) {
-            const delegate = (base as unknown as Record<string, { findFirst: (x: unknown) => Promise<{ id: string } | null> }>)[
-              uncapitalize(model)
-            ];
+            const delegate = (
+              base as unknown as Record<string, { findFirst: (x: unknown) => Promise<{ id: string } | null> }>
+            )[uncapitalize(model!)];
             const existing = await delegate.findFirst({
               where: { ...(a.where as object), tenantId },
               select: { id: true },

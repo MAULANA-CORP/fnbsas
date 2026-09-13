@@ -35,16 +35,37 @@ export const TENANTED_MODELS = new Set([
   "Modal",
   "Pengeluaran",
   "PembayaranLangganan",
+  "VoucherPakai",
 ]);
+
+/**
+ * Tabel anak tanpa kolom tenantId — di-scope lewat induk.
+ * Query langsung (findMany item) tidak boleh lolos lintas toko.
+ */
+export const CHILD_SCOPED_MODELS: Record<string, (tenantId: string) => Record<string, unknown>> = {
+  OrderPOSItem: (tenantId) => ({ orderPOS: { tenantId } }),
+  OrderB2BItem: (tenantId) => ({ orderB2B: { tenantId } }),
+  PembelianItem: (tenantId) => ({ pembelian: { tenantId } }),
+  ProsesBahanBaku: (tenantId) => ({ proses: { tenantId } }),
+  OutputProdukJadi: (tenantId) => ({ output: { tenantId } }),
+  OutputKemasan: (tenantId) => ({ output: { tenantId } }),
+  OutputBiayaLain: (tenantId) => ({ output: { tenantId } }),
+  OutputProses: (tenantId) => ({ output: { tenantId } }),
+};
 
 export function getTenantContext(): TenantContext | undefined {
   return tenantAls.getStore();
 }
 
-export function runWithTenant<T>(tenantId: string | null, fn: () => T): T {
-  return tenantAls.run({ tenantId, skip: !tenantId }, fn);
+/** Jalankan query dalam lingkup satu toko. Jangan dipanggil dengan tenantId kosong. */
+export function runWithTenant<T>(tenantId: string, fn: () => T): T {
+  if (!tenantId) {
+    throw new Error("runWithTenant butuh tenantId");
+  }
+  return tenantAls.run({ tenantId, skip: false }, fn);
 }
 
+/** Login, register, seed, admin platform, webhook Midtrans. */
 export function runWithoutTenant<T>(fn: () => T): T {
   return tenantAls.run({ tenantId: null, skip: true }, fn);
 }
@@ -55,6 +76,14 @@ export function injectWhere(where: unknown, tenantId: string) {
     return { tenantId };
   }
   return { AND: [where, { tenantId }] };
+}
+
+/** Filter lewat relasi induk (tabel anak tanpa kolom tenantId). */
+export function injectRelationWhere(where: unknown, relationFilter: Record<string, unknown>) {
+  if (!where || (typeof where === "object" && Object.keys(where as object).length === 0)) {
+    return relationFilter;
+  }
+  return { AND: [where, relationFilter] };
 }
 
 /** Sisipkan tenantId ke payload create. Aman dipakai di dalam $transaction. */
