@@ -34,7 +34,7 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY --from=builder /app/scripts/docker-start.sh ./docker-start.sh
 RUN chmod +x /app/docker-start.sh \
   && mkdir -p /app/public/uploads/bukti \
-  && chown -R nextjs:nodejs /app/public/uploads /app/docker-start.sh
+  && chown -R nextjs:nodejs /app/public/uploads /app/docker-start.sh /app/prisma /app/src /app/prisma.config.ts /app/package.json
 
 USER nextjs
 EXPOSE 3000

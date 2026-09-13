@@ -7,7 +7,7 @@ if [ -z "$DATABASE_URL" ]; then
 fi
 if [ -x ./node_modules/.bin/prisma ]; then
   echo "Sync schema PostgreSQL..."
-  ./node_modules/.bin/prisma db push --skip-generate
+  ./node_modules/.bin/prisma db push
 else
   echo "Prisma CLI tidak ada di image — skip db push"
 fi
