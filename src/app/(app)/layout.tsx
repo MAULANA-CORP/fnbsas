@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/api-helpers";
-import { getPrisma } from "@/lib/prisma";
+import { getPrismaBase } from "@/lib/prisma";
 import { AppLayout } from "@/components/layout/app-layout";
 import { runWithTenant } from "@/lib/tenant";
 import { getRingkasanLangganan } from "@/lib/subscription";
@@ -11,15 +11,15 @@ export default async function AppGroupLayout({ children }: { children: React.Rea
   if (user.role === "PLATFORM_ADMIN") redirect("/admin");
   if (!user.tenantId) redirect("/login");
 
-  const pengaturan = user.tenantId
-    ? await runWithTenant(user.tenantId, () =>
-        getPrisma().pengaturan.findUnique({ where: { tenantId: user.tenantId! } })
-      )
-    : null;
+  // Bootstrap layout pakai Prisma base + filter eksplisit.
+  // Hindari ketergantungan ALS antar chunk Next standalone di sini.
+  const pengaturan = await getPrismaBase().pengaturan.findUnique({
+    where: { tenantId: user.tenantId },
+  });
 
-  const ringkasan = user.tenantId
-    ? await runWithTenant(user.tenantId, () => getRingkasanLangganan(user.tenantId!)).catch(() => null)
-    : null;
+  const ringkasan = await runWithTenant(user.tenantId, () =>
+    getRingkasanLangganan(user.tenantId!)
+  ).catch(() => null);
 
   return (
     <AppLayout

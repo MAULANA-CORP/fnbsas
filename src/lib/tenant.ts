@@ -5,15 +5,25 @@ export type TenantContext = {
   skip: boolean;
 };
 
-// Pakai globalThis supaya bundling Next/standalone tidak bikin 2 ALS beda instance
-// (runWithoutTenant di satu chunk, Prisma extension di chunk lain).
+// Selalu ambil ALS dari globalThis saat dipanggil.
+// Next standalone sering menduplikasi modul antar chunk; kalau instance di-capture
+// di level module, runWithTenant dan Prisma extension bisa pakai ALS beda.
 const globalForTenant = globalThis as unknown as {
   __gampanginTenantAls?: AsyncLocalStorage<TenantContext>;
 };
 
-export const tenantAls =
-  globalForTenant.__gampanginTenantAls ??
-  (globalForTenant.__gampanginTenantAls = new AsyncLocalStorage<TenantContext>());
+function getTenantAls(): AsyncLocalStorage<TenantContext> {
+  if (!globalForTenant.__gampanginTenantAls) {
+    globalForTenant.__gampanginTenantAls = new AsyncLocalStorage<TenantContext>();
+  }
+  return globalForTenant.__gampanginTenantAls;
+}
+
+/** @deprecated pakai getTenantAls lewat helper; diexport biar kompatibel */
+export const tenantAls = {
+  getStore: () => getTenantAls().getStore(),
+  run: <T,>(store: TenantContext, fn: () => T) => getTenantAls().run(store, fn),
+};
 
 /** Model yang punya kolom tenantId dan wajib di-scope. */
 export const TENANTED_MODELS = new Set([
@@ -63,7 +73,7 @@ export const CHILD_SCOPED_MODELS: Record<string, (tenantId: string) => Record<st
 };
 
 export function getTenantContext(): TenantContext | undefined {
-  return tenantAls.getStore();
+  return getTenantAls().getStore();
 }
 
 /** Jalankan query dalam lingkup satu toko. Jangan dipanggil dengan tenantId kosong. */
@@ -71,12 +81,12 @@ export function runWithTenant<T>(tenantId: string, fn: () => T): T {
   if (!tenantId) {
     throw new Error("runWithTenant butuh tenantId");
   }
-  return tenantAls.run({ tenantId, skip: false }, fn);
+  return getTenantAls().run({ tenantId, skip: false }, fn);
 }
 
 /** Login, register, seed, admin platform, webhook Midtrans. */
 export function runWithoutTenant<T>(fn: () => T): T {
-  return tenantAls.run({ tenantId: null, skip: true }, fn);
+  return getTenantAls().run({ tenantId: null, skip: true }, fn);
 }
 
 /** Gabungkan filter tenant ke where Prisma — dipakai extension dan tes isolasi. */
