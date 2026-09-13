@@ -77,31 +77,19 @@ Klik **Deploy**. Tunggu build Dockerfile selesai (bisa beberapa menit).
 
 Kalau gagal: buka log build. Yang sering: `DATABASE_URL` belum diisi, atau GitHub repo tidak terhubung.
 
-## 5. Schema + seed (sekali, setelah container hijau)
+## 5. Schema + seed
 
-Buka **Terminal / Console** service App:
+**Jangan** `npx prisma` di terminal container. Image slim tidak punya Prisma lokal, `npx` malah unduh Prisma 8 dan error.
+
+Mulai commit ini, schema **otomatis** di-sync saat container start (`prisma db push` pakai Prisma 7 di image).
+
+Seed hanya sekali (akun demo), dari laptop dengan `DATABASE_URL` ke Postgres EasyPanel:
 
 ```bash
-npx prisma db push
-npx prisma generate
 npm run db:seed
 ```
 
-`db push` menambahkan: `tutup_buku`, `rate_limits`, kolom `order_pos.status`, `outletId` di movement stok, unique `(tenantId, username)`.
-
-Kalau `npx prisma` **not found** (image production slim):
-
-1. Di laptop, sementara buka PostgreSQL EasyPanel ke publik / pakai connection yang bisa diakses
-2. Dari folder `fnbsas` lokal:
-
-```bash
-npx prisma db push
-npm run db:seed
-```
-
-dengan `DATABASE_URL` mengarah ke DB server (bukan localhost).
-
-Setelah tabel + seed masuk, tutup akses publik DB kalau sempat dibuka.
+Atau di EasyPanel → service **PostgreSQL** → Console, jalankan SQL di `prisma/migrations/20260913_audit_sisa/migration.sql` kalau start gagal sync.
 
 ## 6. Domain
 
@@ -127,7 +115,7 @@ Cek: landing `/` kebuka, `/admin` ringkasan kebuka, upload bukti di `/langganan`
 
 Push ke `main` → EasyPanel → **Deploy**.
 
-Kalau ada perubahan `schema.prisma`, jalankan lagi `npx prisma db push` (bukan migrate deploy).
+Kalau ada perubahan `schema.prisma`, cukup **Deploy** lagi — start container menjalankan `db push` sendiri.
 
 ## Kalau bermasalah
 
@@ -137,4 +125,4 @@ Kalau ada perubahan `schema.prisma`, jalankan lagi `npx prisma db push` (bukan m
 | Login gagal terus | Seed sudah jalan? Username/password seed? |
 | Build gagal Prisma | Biarkan `DATABASE_URL` palsu di Dockerfile untuk generate |
 | Bukti transfer hilang setelah redeploy | Volume `/app/public/uploads` belum di-mount |
-| `npx prisma` tidak ada di container | Push schema dari laptop ke DB EasyPanel (langkah 5) |
+| `npx prisma` error / unduh Prisma 8 | Jangan pakai `npx prisma` di container. Redeploy image baru (schema auto di start) |

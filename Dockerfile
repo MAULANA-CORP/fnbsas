@@ -29,9 +29,14 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/prisma.config.ts ./prisma.config.ts
 COPY --from=builder /app/src/generated ./src/generated
-RUN mkdir -p /app/public/uploads/bukti && chown -R nextjs:nodejs /app/public/uploads
+COPY --from=builder /app/package.json ./package.json
+COPY --from=deps /app/node_modules ./node_modules
+COPY --from=builder /app/scripts/docker-start.sh ./docker-start.sh
+RUN chmod +x /app/docker-start.sh \
+  && mkdir -p /app/public/uploads/bukti \
+  && chown -R nextjs:nodejs /app/public/uploads /app/docker-start.sh
 
 USER nextjs
 EXPOSE 3000
 ENV PORT=3000 HOSTNAME=0.0.0.0
-CMD ["node", "server.js"]
+CMD ["/app/docker-start.sh"]

@@ -1,6 +1,10 @@
 -- Sisa audit: tutup buku, rate limit, POS BATAL, stok per outlet, username per toko.
 
-CREATE TYPE "StatusOrderPOS" AS ENUM ('AKTIF', 'BATAL');
+DO $$ BEGIN
+  CREATE TYPE "StatusOrderPOS" AS ENUM ('AKTIF', 'BATAL');
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;
 
 ALTER TABLE "order_pos" ADD COLUMN IF NOT EXISTS "status" "StatusOrderPOS" NOT NULL DEFAULT 'AKTIF';
 CREATE INDEX IF NOT EXISTS "order_pos_status_idx" ON "order_pos"("status");
