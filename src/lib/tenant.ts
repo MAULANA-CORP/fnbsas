@@ -5,7 +5,15 @@ export type TenantContext = {
   skip: boolean;
 };
 
-export const tenantAls = new AsyncLocalStorage<TenantContext>();
+// Pakai globalThis supaya bundling Next/standalone tidak bikin 2 ALS beda instance
+// (runWithoutTenant di satu chunk, Prisma extension di chunk lain).
+const globalForTenant = globalThis as unknown as {
+  __gampanginTenantAls?: AsyncLocalStorage<TenantContext>;
+};
+
+export const tenantAls =
+  globalForTenant.__gampanginTenantAls ??
+  (globalForTenant.__gampanginTenantAls = new AsyncLocalStorage<TenantContext>());
 
 /** Model yang punya kolom tenantId dan wajib di-scope. */
 export const TENANTED_MODELS = new Set([

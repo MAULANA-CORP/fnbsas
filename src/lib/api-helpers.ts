@@ -3,7 +3,7 @@
 
 import { NextResponse } from "next/server";
 import { getSession, type Role, type SubscriptionTier } from "@/lib/session";
-import { getPrisma } from "@/lib/prisma";
+import { getPrisma, getPrismaBase } from "@/lib/prisma";
 import { runWithTenant, runWithoutTenant } from "@/lib/tenant";
 import { SubscriptionError } from "@/lib/subscription";
 import { PeriodeTerkunciError } from "@/lib/tutup-buku";
@@ -24,19 +24,19 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
   const session = await getSession();
   if (!session.isLoggedIn || !session.userId) return null;
 
-  const user = await runWithoutTenant(() =>
-    getPrisma().user.findFirst({
-      where: { id: session.userId, isActive: true },
-      select: {
-        id: true,
-        nama: true,
-        role: true,
-        outletId: true,
-        tenantId: true,
-        tenant: { select: { namaUsaha: true, tier: true, paidUntil: true, status: true, isSuspended: true } },
-      },
-    })
-  );
+  // Auth lookup harus lewat client BASE — jangan kena tenant extension / ALS.
+  // Kalau ALS hilang antar chunk Next standalone, getPrisma()+runWithoutTenant bisa throw.
+  const user = await getPrismaBase().user.findFirst({
+    where: { id: session.userId, isActive: true },
+    select: {
+      id: true,
+      nama: true,
+      role: true,
+      outletId: true,
+      tenantId: true,
+      tenant: { select: { namaUsaha: true, tier: true, paidUntil: true, status: true, isSuspended: true } },
+    },
+  });
   if (!user) return null;
 
   let tier: SubscriptionTier | null = user.tenant?.tier ?? null;
